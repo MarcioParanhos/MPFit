@@ -38,15 +38,27 @@ export default function Home(){
   }
 
   async function addDay(){
-    const { value: name } = await Swal.fire({
-      title: 'Nome do dia',
-      input: 'text',
-      inputPlaceholder: 'Ex: Segunda, Pernas',
+    const html = `
+      <input id="swal-name" class="swal2-input" placeholder="Ex: Segunda, Pernas">
+      <input id="swal-subtitle" class="swal2-input" placeholder="Legenda (opcional) - Ex: Biceps - Triceps">
+    `;
+
+    const result = await Swal.fire({
+      title: 'Novo dia',
+      html,
+      focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: 'Adicionar',
+      preConfirm: () => {
+        const name = document.getElementById('swal-name').value;
+        const subtitle = document.getElementById('swal-subtitle').value;
+        if (!name) Swal.showValidationMessage('Nome do dia é obrigatório');
+        return { name, subtitle };
+      }
     });
-    if (!name) return;
-    await fetch('/api/days',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
+    if (!result.value) return;
+    const { name, subtitle } = result.value;
+    await fetch('/api/days',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, subtitle})});
     await loadDays();
   }
 
@@ -162,7 +174,10 @@ export default function Home(){
           {selected ? (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl font-semibold">{selected.name}</h2>
+                <div>
+                  <h2 className="text-xl font-semibold">{selected.name}</h2>
+                  {selected.subtitle && <div className="text-sm text-slate-500">{selected.subtitle}</div>}
+                </div>
                 <div className="flex items-center gap-2">
                   <button className="btn" onClick={addWorkout}>+ Treino</button>
                   <button className="btn bg-red-600 p-2" onClick={async ()=>{

@@ -6,9 +6,9 @@ export default function handler(req, res) {
     return res.status(200).json(days);
   }
   if (req.method === 'POST') {
-    const { name } = req.body;
+    const { name, subtitle } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });
-    const day = db.addDay(name);
+    const day = db.addDay(name, subtitle);
     return res.status(201).json(day);
   }
   res.status(405).end();
