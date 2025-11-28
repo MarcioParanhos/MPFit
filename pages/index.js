@@ -52,8 +52,9 @@ export default function Home(){
       preConfirm: () => {
         const name = document.getElementById('swal-name').value;
         const subtitle = document.getElementById('swal-subtitle').value;
-        if (!name) Swal.showValidationMessage('Nome do dia é obrigatório');
-        return { name, subtitle };
+        if (!name || !String(name).trim()) { Swal.showValidationMessage('Nome do dia é obrigatório'); return false; }
+        if (!subtitle || !String(subtitle).trim()) { Swal.showValidationMessage('Legenda é obrigatória'); return false; }
+        return { name: String(name).trim(), subtitle: String(subtitle).trim() };
       }
     });
     if (!result.value) return;
