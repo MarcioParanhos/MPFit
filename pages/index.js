@@ -163,7 +163,33 @@ export default function Home(){
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xl font-semibold">{selected.name}</h2>
-                <button className="btn" onClick={addWorkout}>+ Treino</button>
+                <div className="flex items-center gap-2">
+                  <button className="btn" onClick={addWorkout}>+ Treino</button>
+                  <button className="btn bg-red-600 p-2" onClick={async ()=>{
+                    const result = await Swal.fire({
+                      title: 'Excluir dia?',
+                      text: 'Isto removerá o dia e todos os treinos e registros vinculados.',
+                      icon: 'warning',
+                      showCancelButton: true,
+                      confirmButtonText: 'Sim, excluir',
+                      cancelButtonText: 'Cancelar'
+                    });
+                    if (!result.isConfirmed) return;
+                    await fetch(`/api/days/${selected.id}`, { method: 'DELETE' });
+                    await loadDays();
+                    setSelected(null);
+                    setWorkouts([]);
+                    Swal.fire({ icon: 'success', text: 'Dia e registros excluídos' });
+                  }} aria-label="Excluir dia">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                      <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               <div className="space-y-3">
                 {workouts.length===0 && <div className="card">Nenhum treino neste dia.</div>}
