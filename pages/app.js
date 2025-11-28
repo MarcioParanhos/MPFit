@@ -244,12 +244,18 @@ export default function Home(){
 
                     {dayMenuOpen && (
                       <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded shadow-sm z-50">
-                        <button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100" onClick={async ()=>{
+                        <button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2" onClick={async ()=>{
                           setDayMenuOpen(false);
                           await addWorkout();
-                        }}>Adicionar exercício</button>
+                        }}>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                          </svg>
+                          <span>Adicionar exercício</span>
+                        </button>
 
-                        <button className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-slate-50" onClick={async ()=>{
+                        <button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2 text-red-600" onClick={async ()=>{
                           setDayMenuOpen(false);
                           const result = await Swal.fire({
                             title: 'Excluir dia?',
@@ -265,7 +271,16 @@ export default function Home(){
                           setSelected(null);
                           setWorkouts([]);
                           Swal.fire({ icon: 'success', text: 'Dia e registros excluídos' });
-                        }}>Excluir dia</button>
+                        }}>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-1 14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2l-1 -14" />
+                            <path d="M10 11v6" />
+                            <path d="M14 11v6" />
+                            <path d="M9 6v-2a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v2" />
+                          </svg>
+                          <span>Excluir dia</span>
+                        </button>
                       </div>
                     )}
                   </div>
