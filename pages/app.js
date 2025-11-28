@@ -3,12 +3,15 @@ import { useRouter } from 'next/router';
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 
-function DayIcon({ label }){
+function DayIcon({ label, completed }){
 	const L = (label||'').charAt(0).toUpperCase();
+	const rectFill = completed ? '#ECFDF5' : '#FFF';
+	const rectStroke = completed ? '#D1FAE5' : '#E6EEF8';
+	const textFill = completed ? '#065f46' : '#0f172a';
 	return (
 		<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-			<rect width="36" height="36" rx="8" fill="#FFF" stroke="#E6EEF8"/>
-			<text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontSize="12" fontFamily="Inter, Roboto, system-ui, Arial" fill="#0f172a">{L}</text>
+			<rect width="36" height="36" rx="8" fill={rectFill} stroke={rectStroke}/>
+			<text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontSize="12" fontFamily="Inter, Roboto, system-ui, Arial" fill={textFill}>{L}</text>
 		</svg>
 	)
 }
@@ -17,8 +20,8 @@ function DayItem({ d, active, onClick }) {
 	const completedClass = d && d.completed ? 'bg-emerald-50 ring-2 ring-emerald-200' : '';
 	const title = d ? `${d.name}${d.completed ? ' (concluído)' : ''}` : '';
 	return (
-		<div onClick={onClick} className={`day-item ${active ? 'active' : ''} ${completedClass}`} aria-label={title} title={title}>
-			<DayIcon label={d.name} />
+		<div onClick={onClick} className={`day-item ${active ? 'active' : ''} ${completedClass} p-1 rounded`} aria-label={title} title={title}>
+			<DayIcon label={d.name} completed={!!d.completed} />
 		</div>
 	)
 }
@@ -28,6 +31,8 @@ export default function AppPage(){
 	const [days,setDays] = useState([]);
 	const [selected, setSelected] = useState(null);
 	const [workouts, setWorkouts] = useState([]);
+	const [timerSeconds, setTimerSeconds] = useState(null);
+	const timerRef = useRef(null);
 	const [draggingId, setDraggingId] = useState(null);
 	const [dragOverIndex, setDragOverIndex] = useState(null);
 	const [dayMenuOpen, setDayMenuOpen] = useState(false);
@@ -44,9 +49,42 @@ export default function AppPage(){
 
 	async function selectDay(d){
 		setSelected(d);
+		// initialize timer state from day
+		if (d && d.startedAt) {
+			const s = Math.max(0, Math.round((Date.now() - new Date(d.startedAt).getTime())/1000));
+			setTimerSeconds(s);
+		} else if (d && (d.durationSeconds || d.durationSeconds === 0)) {
+			setTimerSeconds(d.durationSeconds);
+		} else {
+			setTimerSeconds(null);
+		}
 		const res = await fetch(`/api/days/${d.id}/workouts`);
 		const w = await res.json(); setWorkouts(w);
 	}
+
+	function formatDuration(sec){
+		if (sec === null || sec === undefined) return '';
+		const s = Number(sec);
+		const h = Math.floor(s/3600);
+		const m = Math.floor((s%3600)/60);
+		const ss = s%60;
+		if (h>0) return `${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+		return `${m}:${String(ss).padStart(2,'0')}`;
+	}
+
+	// manage running timer when a day is started
+	useEffect(()=>{
+		// clear previous
+		if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+		if (selected && selected.startedAt) {
+			// start interval
+			setTimerSeconds(Math.max(0, Math.round((Date.now() - new Date(selected.startedAt).getTime())/1000)));
+			timerRef.current = setInterval(()=>{
+				setTimerSeconds(prev => (prev===null?0:prev+1));
+			},1000);
+		}
+		return ()=>{ if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
+	},[selected && selected.startedAt]);
 
 	async function addDay(){
 		const { value: form } = await Swal.fire({
@@ -133,9 +171,16 @@ export default function AppPage(){
 		if (!selected) return Swal.fire({ icon: 'info', text: 'Selecione um dia' });
 		const res = await fetch(`/api/days/${selected.id}/start`, { method: 'POST' });
 		if (!res.ok) return Swal.fire({ icon: 'error', text: 'Falha ao iniciar treino' });
+		const day = await res.json();
+		// update days list and selected day
 		await loadDays();
-		// refresh selected workouts
+		setSelected(day);
 		const r = await fetch(`/api/days/${selected.id}/workouts`); setWorkouts(await r.json());
+		// initialize timer
+		if (day && day.startedAt) {
+			const s = Math.max(0, Math.round((Date.now() - new Date(day.startedAt).getTime())/1000));
+			setTimerSeconds(s);
+		}
 		Swal.fire({ icon: 'success', text: 'Treino iniciado: marcadores resetados' });
 	}
 
@@ -143,8 +188,15 @@ export default function AppPage(){
 		if (!selected) return Swal.fire({ icon: 'info', text: 'Selecione um dia' });
 		const res = await fetch(`/api/days/${selected.id}/complete`, { method: 'POST' });
 		if (!res.ok) return Swal.fire({ icon: 'error', text: 'Falha ao concluir treino' });
+		const day = await res.json();
 		await loadDays();
+		setSelected(day);
 		const r = await fetch(`/api/days/${selected.id}/workouts`); setWorkouts(await r.json());
+		// set final duration and clear timer
+		if (day && (day.durationSeconds || day.durationSeconds === 0)) {
+			setTimerSeconds(day.durationSeconds);
+		}
+		if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
 		Swal.fire({ icon: 'success', text: 'Dia marcado como concluído' });
 	}
 
@@ -175,7 +227,14 @@ export default function AppPage(){
 							<path d="M19 16v6" />
 						</svg>
 					</button>
-					<button className="btn bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => router.push('/')} aria-label="Logout">⎋</button>
+					<button className="btn bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => router.push('/')} aria-label="Logout">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+							<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+							<path d="M10 8v-2a2 2 0 0 1 2 -2h7a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-7a2 2 0 0 1 -2 -2v-2" />
+							<path d="M15 12h-12l3 -3" />
+							<path d="M6 15l-3 -3" />
+						</svg>
+					</button>
 				</div>
 			</header>
 			<main className="p-4">
@@ -211,6 +270,12 @@ export default function AppPage(){
 								</div>
 								<div className="flex items-center gap-2" ref={dayMenuRef}>
 										<div className="relative flex items-center gap-2">
+											{typeof timerSeconds === 'number' && (
+												<div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${selected && selected.startedAt ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+													{selected && selected.startedAt ? <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" aria-hidden></span> : null}
+													<span className="font-mono">{formatDuration(timerSeconds)}</span>
+												</div>
+											)}
 											<button className="btn p-2 bg-indigo-600 text-white rounded-full w-8 h-8 flex items-center justify-center" onClick={startDayAction} aria-label="Iniciar treino" title="Iniciar treino">
 												<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
 													<path d="M5 3l15 9L5 21V3z" />
