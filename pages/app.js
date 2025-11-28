@@ -170,8 +170,23 @@ export default function AppPage(){
 	async function startDayAction(){
 		if (!selected) return Swal.fire({ icon: 'info', text: 'Selecione um dia' });
 		const res = await fetch(`/api/days/${selected.id}/start`, { method: 'POST' });
-		if (!res.ok) return Swal.fire({ icon: 'error', text: 'Falha ao iniciar treino' });
-		const day = await res.json();
+		let body = null;
+		try { body = await res.json(); } catch (e) { /* ignore parse error */ }
+		if (!res.ok) {
+			// if server returned a day-like object in body, proceed but warn
+			if (body && body.id) {
+				await loadDays();
+				setSelected(body);
+				const r = await fetch(`/api/days/${body.id}/workouts`); setWorkouts(await r.json());
+				if (body && body.startedAt) {
+					const s = Math.max(0, Math.round((Date.now() - new Date(body.startedAt).getTime())/1000));
+					setTimerSeconds(s);
+				}
+				return Swal.fire({ icon: 'warning', text: 'Treino iniciado, mas o servidor retornou um erro não esperado' });
+			}
+			return Swal.fire({ icon: 'error', text: 'Falha ao iniciar treino' });
+		}
+		const day = body;
 		// update days list and selected day
 		await loadDays();
 		setSelected(day);
@@ -187,8 +202,20 @@ export default function AppPage(){
 	async function completeDayAction(){
 		if (!selected) return Swal.fire({ icon: 'info', text: 'Selecione um dia' });
 		const res = await fetch(`/api/days/${selected.id}/complete`, { method: 'POST' });
-		if (!res.ok) return Swal.fire({ icon: 'error', text: 'Falha ao concluir treino' });
-		const day = await res.json();
+		let body = null;
+		try { body = await res.json(); } catch (e) { /* ignore */ }
+		if (!res.ok) {
+			if (body && body.id) {
+				await loadDays();
+				setSelected(body);
+				const r = await fetch(`/api/days/${body.id}/workouts`); setWorkouts(await r.json());
+				if (body && (body.durationSeconds || body.durationSeconds === 0)) setTimerSeconds(body.durationSeconds);
+				if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+				return Swal.fire({ icon: 'warning', text: 'Dia concluído, mas o servidor retornou um erro não esperado' });
+			}
+			return Swal.fire({ icon: 'error', text: 'Falha ao concluir treino' });
+		}
+		const day = body;
 		await loadDays();
 		setSelected(day);
 		const r = await fetch(`/api/days/${selected.id}/workouts`); setWorkouts(await r.json());

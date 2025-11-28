@@ -3,7 +3,12 @@ const db = require('../../../../lib/db');
 export default function handler(req, res){
   const { id } = req.query;
   if (req.method !== 'POST') { res.setHeader('Allow','POST'); return res.status(405).end(); }
-  const day = db.completeDay(id);
-  if (!day) return res.status(404).json({ error: 'day not found' });
-  return res.status(200).json(day);
+  try {
+    const day = db.completeDay(id);
+    if (!day) return res.status(404).json({ error: 'day not found' });
+    return res.status(200).json(day);
+  } catch (err) {
+    console.error('Error in /api/days/[id]/complete:', err && err.stack ? err.stack : err);
+    try { return res.status(500).json({ error: String(err && err.message ? err.message : err) }); } catch (e) { return res.status(500).end(); }
+  }
 }
