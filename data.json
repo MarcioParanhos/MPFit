@@ -21,7 +21,7 @@
       "youtube": null,
       "currentWeight": null,
       "completed": true,
-      "position": 1
+      "position": 2
     },
     {
       "id": 4,
@@ -32,7 +32,7 @@
       "youtube": null,
       "currentWeight": null,
       "completed": false,
-      "position": 2
+      "position": 1
     }
   ],
   "logs": [],

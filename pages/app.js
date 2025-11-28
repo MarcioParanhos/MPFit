@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
@@ -28,6 +28,8 @@ export default function Home(){
   const [workouts, setWorkouts] = useState([]);
   const [draggingId, setDraggingId] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [dayMenuOpen, setDayMenuOpen] = useState(false);
+  const dayMenuRef = useRef(null);
 
   const totalExercises = workouts.length;
   const completedExercises = workouts.filter(w => !!w.completed).length;
@@ -157,6 +159,16 @@ export default function Home(){
     Swal.fire({ icon: 'success', text: 'Exercício excluído' });
   }
 
+  // close day menu on outside click
+  useEffect(()=>{
+    function onDoc(e){
+      if (!dayMenuRef.current) return;
+      if (!dayMenuRef.current.contains(e.target)) setDayMenuOpen(false);
+    }
+    if (dayMenuOpen) document.addEventListener('mousedown', onDoc);
+    return ()=> document.removeEventListener('mousedown', onDoc);
+  },[dayMenuOpen]);
+
   async function persistOrder(newOrder) {
     if (!selected) return;
     try {
@@ -219,40 +231,71 @@ export default function Home(){
                   <h2 className="text-xl font-semibold">{selected.name}</h2>
                   {selected.subtitle && <div className="text-sm text-slate-500">{selected.subtitle}</div>}
                 </div>
-                <div className="flex items-center gap-2">
-                  <button className="btn p-2" onClick={addWorkout} aria-label="Adicionar exercício">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                  </button>
-                  <button className="btn bg-red-600 text-white p-2 hover:bg-red-700" onClick={async ()=>{
-                    const result = await Swal.fire({
-                      title: 'Excluir dia?',
-                      text: 'Isto removerá o dia e todos os exercícios e registros vinculados.',
-                      icon: 'warning',
-                      showCancelButton: true,
-                      confirmButtonText: 'Sim, excluir',
-                      cancelButtonText: 'Cancelar'
-                    });
-                    if (!result.isConfirmed) return;
-                    await fetch(`/api/days/${selected.id}`, { method: 'DELETE' });
-                    await loadDays();
-                    setSelected(null);
-                    setWorkouts([]);
-                    Swal.fire({ icon: 'success', text: 'Dia e registros excluídos' });
-                  }} aria-label="Excluir dia">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                      <path d="M10 11v6" />
-                      <path d="M14 11v6" />
-                      <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
+                <div className="flex items-center gap-2" ref={dayMenuRef}>
+                  <div className="relative">
+                    <button className="btn p-2 bg-transparent text-slate-600" onClick={()=>setDayMenuOpen(v=>!v)} aria-haspopup="true" aria-expanded={dayMenuOpen} aria-label="Opções do dia">
+                      {/* kebab / more icon */}
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <circle cx="12" cy="5" r="1" />
+                        <circle cx="12" cy="12" r="1" />
+                        <circle cx="12" cy="19" r="1" />
+                      </svg>
+                    </button>
+
+                    {dayMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded shadow-sm z-50">
+                        <button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100" onClick={async ()=>{
+                          setDayMenuOpen(false);
+                          await addWorkout();
+                        }}>Adicionar exercício</button>
+
+                        <button className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-slate-50" onClick={async ()=>{
+                          setDayMenuOpen(false);
+                          const result = await Swal.fire({
+                            title: 'Excluir dia?',
+                            text: 'Isto removerá o dia e todos os exercícios e registros vinculados.',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Sim, excluir',
+                            cancelButtonText: 'Cancelar'
+                          });
+                          if (!result.isConfirmed) return;
+                          await fetch(`/api/days/${selected.id}`, { method: 'DELETE' });
+                          await loadDays();
+                          setSelected(null);
+                          setWorkouts([]);
+                          Swal.fire({ icon: 'success', text: 'Dia e registros excluídos' });
+                        }}>Excluir dia</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="mb-3 text-sm text-slate-600">Exercícios: <span className="font-semibold">{totalExercises}</span> • Concluídos: <span className="font-semibold">{completedExercises}</span></div>
+              <div className="mb-3 flex items-center gap-3">
+                <div className="inline-flex items-center gap-2 bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-sm shadow-sm">
+                  {/* exercise icon (user-provided treadmill SVG) */}
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-500" aria-hidden>
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M10 3a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" />
+                    <path d="M3 14l4 1l.5 -.5" />
+                    <path d="M12 18v-3l-3 -2.923l.75 -5.077" />
+                    <path d="M6 10v-2l4 -1l2.5 2.5l2.5 .5" />
+                    <path d="M21 22a1 1 0 0 0 -1 -1h-16a1 1 0 0 0 -1 1" />
+                    <path d="M18 21l1 -11l2 -1" />
+                  </svg>
+                  <span className="text-xs text-slate-500">Exercícios</span>
+                  <span className="font-semibold">{totalExercises}</span>
+                </div>
+
+                <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-sm shadow-sm">
+                  {/* completed icon */}
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                  <span className="text-xs text-emerald-600">Concluídos</span>
+                  <span className="font-semibold">{completedExercises}</span>
+                </div>
+              </div>
               <div className="space-y-3">
                 {workouts.length===0 && <div className="card">Nenhum exercício neste dia.</div>}
                 {workouts.map((w, idx) => (
