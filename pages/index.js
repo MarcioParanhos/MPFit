@@ -27,6 +27,9 @@ export default function Home(){
   const [draggingId, setDraggingId] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
 
+  const totalExercises = workouts.length;
+  const completedExercises = workouts.filter(w => !!w.completed).length;
+
   useEffect(()=>{ loadDays(); },[]);
 
   async function loadDays(){
@@ -221,6 +224,31 @@ export default function Home(){
                       <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
                     </svg>
                   </button>
+                </div>
+              </div>
+              <div className="mb-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="inline-flex items-center gap-2 bg-slate-100 text-slate-800 px-3 py-1 rounded-full border border-slate-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-4 h-4 text-indigo-600" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                      <path d="M10 3a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" />
+                      <path d="M3 14l4 1l.5 -.5" />
+                      <path d="M12 18v-3l-3 -2.923l.75 -5.077" />
+                      <path d="M6 10v-2l4 -1l2.5 2.5l2.5 .5" />
+                      <path d="M21 22a1 1 0 0 0 -1 -1h-16a1 1 0 0 0 -1 1" />
+                      <path d="M18 21l1 -11l2 -1" />
+                    </svg>
+                    <span className="text-slate-700">Exercícios</span>
+                    <span className="ml-1 font-semibold text-indigo-600">{totalExercises}</span>
+                  </div>
+
+                  <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full border border-emerald-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-emerald-800">Concluídos</span>
+                    <span className="ml-1 font-semibold text-emerald-700">{completedExercises}</span>
+                  </div>
                 </div>
               </div>
               <div className="space-y-3">
