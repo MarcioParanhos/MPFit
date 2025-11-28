@@ -1,19 +1,39 @@
 {
   "days": [
     {
-      "id": 1,
-      "name": "Segunda"
-    },
-    {
-      "id": 2,
-      "name": "Terça-Feira"
+      "id": 4,
+      "name": "Terça-Feira",
+      "subtitle": "Inferiores Completo"
     }
   ],
-  "workouts": [],
+  "workouts": [
+    {
+      "id": 3,
+      "day_id": 4,
+      "name": "Cadeira Flexora",
+      "plannedSets": 3,
+      "plannedReps": 12,
+      "youtube": null,
+      "currentWeight": null,
+      "completed": true,
+      "position": 1
+    },
+    {
+      "id": 4,
+      "day_id": 4,
+      "name": "Cadeira Abdutora",
+      "plannedSets": 3,
+      "plannedReps": 12,
+      "youtube": null,
+      "currentWeight": null,
+      "completed": false,
+      "position": 2
+    }
+  ],
   "logs": [],
   "_ids": {
-    "days": 2,
-    "workouts": 2,
+    "days": 4,
+    "workouts": 4,
     "logs": 2
   }
 }

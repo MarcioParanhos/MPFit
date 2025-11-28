@@ -5,9 +5,9 @@ import 'sweetalert2/dist/sweetalert2.min.css';
 function DayIcon({ label }){
   const L = (label||'').charAt(0).toUpperCase();
   return (
-    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <rect width="44" height="44" rx="10" fill="#FFF" stroke="#E6EEF8"/>
-      <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontSize="14" fontFamily="Inter, Roboto, system-ui, Arial" fill="#0f172a">{L}</text>
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <rect width="36" height="36" rx="8" fill="#FFF" stroke="#E6EEF8"/>
+      <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontSize="12" fontFamily="Inter, Roboto, system-ui, Arial" fill="#0f172a">{L}</text>
     </svg>
   )
 }
@@ -24,6 +24,8 @@ export default function Home(){
   const [days,setDays] = useState([]);
   const [selected, setSelected] = useState(null);
   const [workouts, setWorkouts] = useState([]);
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
 
   useEffect(()=>{ loadDays(); },[]);
 
@@ -67,14 +69,14 @@ export default function Home(){
     if(!selected) return Swal.fire({ icon: 'warning', text: 'Selecione um dia' });
 
     const html = `
-      <input id="swal-name" class="swal2-input" placeholder="Nome do treino">
+      <input id="swal-name" class="swal2-input" placeholder="Nome do exercício">
       <input id="swal-sets" class="swal2-input" placeholder="Séries (ex: 3)">
       <input id="swal-reps" class="swal2-input" placeholder="Reps por série (ex: 8)">
       <input id="swal-youtube" class="swal2-input" placeholder="URL do YouTube (opcional)">
     `;
 
     const result = await Swal.fire({
-      title: 'Novo treino',
+      title: 'Novo exercício',
       html,
       focusConfirm: false,
       showCancelButton: true,
@@ -84,7 +86,7 @@ export default function Home(){
         const plannedSets = document.getElementById('swal-sets').value;
         const plannedReps = document.getElementById('swal-reps').value;
         const youtube = document.getElementById('swal-youtube').value;
-        if (!name) Swal.showValidationMessage('Nome do treino é obrigatório');
+        if (!name) Swal.showValidationMessage('Nome do exercício é obrigatório');
         return { name, plannedSets, plannedReps, youtube };
       }
     });
@@ -137,8 +139,8 @@ export default function Home(){
 
   async function deleteWorkout(workoutId){
     const result = await Swal.fire({
-      title: 'Excluir treino?',
-      text: 'Isto removerá o treino e todos os registros relacionados.',
+      title: 'Excluir exercício?',
+      text: 'Isto removerá o exercício e todos os registros relacionados.',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Sim, excluir',
@@ -147,7 +149,16 @@ export default function Home(){
     if (!result.isConfirmed) return;
     await fetch(`/api/workouts/${workoutId}`, { method: 'DELETE' });
     const res = await fetch(`/api/days/${selected.id}/workouts`); setWorkouts(await res.json());
-    Swal.fire({ icon: 'success', text: 'Treino excluído' });
+    Swal.fire({ icon: 'success', text: 'Exercício excluído' });
+  }
+
+  async function persistOrder(newOrder) {
+    if (!selected) return;
+    try {
+      await fetch(`/api/days/${selected.id}/workouts/reorder`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderedIds: newOrder }) });
+    } catch (e) {
+      console.error('Failed to persist order', e);
+    }
   }
 
   return (
@@ -180,11 +191,16 @@ export default function Home(){
                   {selected.subtitle && <div className="text-sm text-slate-500">{selected.subtitle}</div>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="btn" onClick={addWorkout}>+ Treino</button>
-                  <button className="btn bg-red-600 p-2" onClick={async ()=>{
+                  <button className="btn p-2" onClick={addWorkout} aria-label="Adicionar exercício">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  </button>
+                  <button className="btn bg-red-600 text-white p-2 hover:bg-red-700" onClick={async ()=>{
                     const result = await Swal.fire({
                       title: 'Excluir dia?',
-                      text: 'Isto removerá o dia e todos os treinos e registros vinculados.',
+                      text: 'Isto removerá o dia e todos os exercícios e registros vinculados.',
                       icon: 'warning',
                       showCancelButton: true,
                       confirmButtonText: 'Sim, excluir',
@@ -208,37 +224,77 @@ export default function Home(){
                 </div>
               </div>
               <div className="space-y-3">
-                {workouts.length===0 && <div className="card">Nenhum treino neste dia.</div>}
-                {workouts.map(w=> (
-                  <div key={w.id} className="card">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-semibold text-lg">{w.name}</div>
-                        <div className="text-sm text-slate-500">Séries: {w.plannedSets} • Reps: {w.plannedReps}</div>
+                {workouts.length===0 && <div className="card">Nenhum exercício neste dia.</div>}
+                {workouts.map((w, idx) => (
+                  <div key={w.id} draggable
+                    onDragStart={(e) => { e.dataTransfer.setData('text/plain', String(w.id)); setDraggingId(w.id); }}
+                    onDragOver={(e) => { e.preventDefault(); setDragOverIndex(idx); }}
+                    onDrop={async (e) => {
+                      e.preventDefault(); const dragged = Number(e.dataTransfer.getData('text/plain'));
+                      const from = workouts.findIndex(x => x.id === dragged);
+                      const to = idx;
+                      if (from === -1) return;
+                      const copy = workouts.slice();
+                      const [moved] = copy.splice(from,1);
+                      copy.splice(to,0,moved);
+                      setWorkouts(copy);
+                      setDraggingId(null); setDragOverIndex(null);
+                      await persistOrder(copy.map(x=>x.id));
+                    }}
+                    onDragEnd={() => { setDraggingId(null); setDragOverIndex(null); }}
+                    className={`card ${w.completed ? 'completed' : ''} ${draggingId===w.id ? 'opacity-60' : ''} ${dragOverIndex===idx ? 'ring-2 ring-dashed ring-slate-300' : ''}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-lg truncate">{w.name}</div>
+                        <div className="text-sm text-slate-500 truncate">Séries: {w.plannedSets} • Reps: {w.plannedReps}</div>
+                        {w.youtube && <div className="mt-1"><a className="text-indigo-600 text-sm" href={w.youtube} target="_blank" rel="noreferrer">Vídeo</a></div>}
                       </div>
-                        <div className="flex flex-col gap-2 items-end">
-                          <div className="text-sm text-slate-500">Peso atual: <span className="font-semibold">{w.currentWeight? w.currentWeight + ' kg' : '—'}</span></div>
-                          <div className="flex gap-2">
-                            <button className="btn" onClick={()=>setCurrentWeight(w.id)}>Definir peso atual</button>
-                            <button className="btn bg-red-600 p-2" onClick={()=>deleteWorkout(w.id)} aria-label="Excluir treino">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                <path d="M10 11v6" />
-                                <path d="M14 11v6" />
-                                <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-                              </svg>
-                            </button>
-                          </div>
-                          {w.youtube && <a className="text-indigo-600 text-sm" href={w.youtube} target="_blank" rel="noreferrer">Vídeo</a>}
+
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="text-sm text-slate-500">Peso atual: <span className="font-semibold">{w.currentWeight ? w.currentWeight + ' kg' : '—'}</span></div>
+                        <div className="flex items-center gap-2">
+                          <button className="btn text-sm px-2 py-1" onClick={() => setCurrentWeight(w.id)} aria-label="Definir peso">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon icon-tabler icon-tabler-barbell">
+                              <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                              <path d="M2 12h1" />
+                              <path d="M6 8h-2a1 1 0 0 0 -1 1v6a1 1 0 0 0 1 1h2" />
+                              <path d="M6 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1 -1v-10a1 1 0 0 0 -1 -1h-1a1 1 0 0 0 -1 1z" />
+                              <path d="M9 12h6" />
+                              <path d="M15 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1 -1v-10a1 1 0 0 0 -1 -1h-1a1 1 0 0 0 -1 1z" />
+                              <path d="M18 8h2a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-2" />
+                              <path d="M22 12h-1" />
+                            </svg>
+                          </button>
+                          <button className="btn bg-red-600 text-white p-2 hover:bg-red-700" onClick={() => deleteWorkout(w.id)} aria-label="Excluir exercício">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                              <path d="M10 11v6" />
+                              <path d="M14 11v6" />
+                              <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
                         </div>
+                      </div>
                     </div>
+
                     <div className="mt-3">
-                      <div className="text-sm text-slate-600 mb-2">Registros recentes:</div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input type="checkbox" checked={!!w.completed} onChange={async (e) => {
+                            const next = e.target.checked;
+                            await fetch(`/api/workouts/${w.id}/complete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ completed: next }) });
+                            const res = await fetch(`/api/days/${selected.id}/workouts`);
+                            setWorkouts(await res.json());
+                          }} />
+                          <span className="whitespace-nowrap">{w.completed ? 'Concluído' : 'Marcar concluído'}</span>
+                        </label>
+                        <div className="text-sm text-slate-600">&nbsp;</div>
+                      </div>
                       <ul className="space-y-2">
-                        {(w.logs || []).slice(0,5).map(l=> (
+                        {(w.logs || []).slice(0,5).map(l => (
                           <li key={l.id} className="flex justify-between text-sm text-slate-700">
-                            <div>{new Date(l.date).toLocaleString()} • S{l.series} R{l.reps}</div>
+                            <div className="truncate">{new Date(l.date).toLocaleString()} • S{l.series} R{l.reps}</div>
                             <div className="font-semibold">{l.weight} kg</div>
                           </li>
                         ))}
@@ -249,7 +305,7 @@ export default function Home(){
               </div>
             </div>
           ) : (
-            <div className="card">Selecione um dia para ver e adicionar treinos.</div>
+            <div className="card">Selecione um dia para ver e adicionar exercícios.</div>
           )}
         </section>
       </main>

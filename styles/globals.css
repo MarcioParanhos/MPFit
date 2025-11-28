@@ -8,8 +8,9 @@ body { @apply bg-slate-50 text-slate-900 antialiased; }
 /* Custom simple app styles */
 .app-shell { @apply max-w-md mx-auto min-h-screen; }
 .header { @apply bg-white shadow p-4 flex items-center justify-between sticky top-0 z-10 }
-.day-list { @apply flex gap-3 overflow-x-auto p-2 }
-.day-item { @apply bg-white rounded-xl p-2 shadow min-w-[64px] text-center flex items-center justify-center }
+.day-list { @apply flex gap-2 overflow-x-auto p-2 }
+.day-item { @apply bg-white rounded-xl p-1 shadow min-w-[48px] text-center flex items-center justify-center }
 .day-item.active { @apply ring-2 ring-indigo-200 }
 .card { @apply bg-white rounded-xl p-4 shadow }
+.card.completed { @apply bg-emerald-50 border-l-4 border-emerald-200 }
 .btn { @apply bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm }
