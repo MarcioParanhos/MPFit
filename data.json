@@ -4,6 +4,11 @@
       "id": 4,
       "name": "Terça-Feira",
       "subtitle": "Inferiores Completo"
+    },
+    {
+      "id": 5,
+      "name": "Quarta-Feira",
+      "subtitle": "Biceps-triceps"
     }
   ],
   "workouts": [
@@ -32,7 +37,7 @@
   ],
   "logs": [],
   "_ids": {
-    "days": 4,
+    "days": 5,
     "workouts": 4,
     "logs": 2
   }
