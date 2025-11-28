@@ -1,0 +1,19 @@
+{
+  "days": [
+    {
+      "id": 1,
+      "name": "Segunda"
+    },
+    {
+      "id": 2,
+      "name": "Terça-Feira"
+    }
+  ],
+  "workouts": [],
+  "logs": [],
+  "_ids": {
+    "days": 2,
+    "workouts": 2,
+    "logs": 2
+  }
+}
