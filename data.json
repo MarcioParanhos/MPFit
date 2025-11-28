@@ -3,7 +3,8 @@
     {
       "id": 4,
       "name": "Terça-Feira",
-      "subtitle": "Inferiores Completo"
+      "subtitle": "Inferiores Completo",
+      "completed": true
     },
     {
       "id": 5,
@@ -24,21 +25,42 @@
       "position": 2
     },
     {
-      "id": 4,
+      "id": 6,
       "day_id": 4,
-      "name": "Cadeira Abdutora",
+      "name": "Cadeira Flexora",
       "plannedSets": 3,
       "plannedReps": 12,
       "youtube": null,
       "currentWeight": null,
-      "completed": false,
-      "position": 1
+      "completed": true,
+      "position": 4
     }
   ],
   "logs": [],
   "_ids": {
     "days": 5,
-    "workouts": 4,
-    "logs": 2
-  }
+    "workouts": 6,
+    "logs": 2,
+    "templates": 1
+  },
+  "templates": [
+    {
+      "id": 1,
+      "name": "Peito Definido",
+      "workouts": [
+        {
+          "name": "Cadeira Abdutora",
+          "plannedSets": 3,
+          "plannedReps": 12,
+          "youtube": null
+        },
+        {
+          "name": "Cadeira Flexora",
+          "plannedSets": 3,
+          "plannedReps": 12,
+          "youtube": null
+        }
+      ]
+    }
+  ]
 }
