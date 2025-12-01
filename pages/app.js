@@ -415,6 +415,27 @@ useEffect(()=>{
 				.day-item.add-day svg rect { fill: #FFF !important; stroke: #E6EEF8 !important; }
 				.day-item.add-day svg path, .day-item.add-day svg line { stroke: #072000 !important; }
 				.day-item.add-day:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 10px 30px rgba(16,24,40,0.12); }
+
+				/* Base SVG sizing (mobile-first). Desktop overrides below. */
+				.day-item svg { width: 36px; height: 36px; }
+
+				@media (min-width: 1024px) {
+					/* Desktop: larger day tiles and more spacing */
+					.day-list { gap: 14px; }
+					.day-item { padding: 6px; }
+					.day-item svg { width: 52px; height: 52px; }
+					.day-item svg rect { rx: 10; }
+					.day-item:hover { transform: translateY(-6px); box-shadow: 0 18px 40px rgba(2,6,23,0.12); }
+					.day-item.active svg rect { fill: #d4f523 !important; stroke: #b7e124 !important; }
+					.day-item.active svg text { font-size: 14px !important; }
+					.day-item.add-day svg rect { fill: #FFF !important; stroke: #E6EEF8 !important; }
+					/* Make header and layout occupy full screen on desktop; fix header so menu always accessible */
+					.app-shell { max-width: 100% !important; padding-left: 40px; padding-right: 40px; padding-top: 64px; }
+					header.header { position: fixed; top: 0; left: 0; right: 0; width: 100%; z-index: 80; background: #fff; box-shadow: 0 2px 8px rgba(2,6,23,0.04); }
+					/* ensure off-canvas sits above header when open */
+					.offcanvas-panel { z-index: 90; }
+					main { min-height: calc(100vh - 64px); }
+				}
 			`}</style>
 
 			{/* Compact SweetAlert2 styles for mobile-friendly modals */}
