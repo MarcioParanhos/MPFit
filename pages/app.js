@@ -333,6 +333,19 @@ useEffect(()=>{
 
 	return (
 		<div className="app-shell mx-auto">
+			<style jsx global>{`
+				/* Buttons inside workout cards: apply requested color */
+				.workout-card .btn{ background: #d4f523 !important; border-color: rgba(0,0,0,0.06) !important; color: #072000 !important; }
+				.workout-card .btn[aria-label="Excluir exercício"]{ background: #d4f523 !important; color: #072000 !important; }
+				/* Specific aria-label selectors to cover buttons regardless of utility classes */
+				button[aria-label="Editar exercício"],
+				button[aria-label="Definir peso"],
+				button[aria-label="Excluir exercício"] {
+					background: #d4f523 !important;
+					border-color: rgba(0,0,0,0.06) !important;
+					color: #072000 !important;
+				}
+			`}</style>
 			<header className="header">
 				<div className="flex items-center gap-2">
 					<img src="/images/TRAINHUB.png" alt="TrainHub" className="h-8" />
