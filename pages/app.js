@@ -125,20 +125,30 @@ export default function AppPage(){
 	async function addDay(){
 		const { value: form } = await Swal.fire({
 			title: 'Novo dia',
-			html: `<input id="swal-name" class="swal2-input" placeholder="Ex: Segunda, Pernas"><input id="swal-subtitle" class="swal2-input" placeholder="Legenda (obrigatória)">`,
+			html: `<input id="swal-name" class="swal2-input" placeholder="Ex: Segunda, Pernas"><input id="swal-subtitle" class="swal2-input" placeholder="Legenda (obrigatória)"><input id="swal-template" class="swal2-input" placeholder="Template ID (opcional)">`,
 			focusConfirm: false,
 			showCancelButton: true,
 			confirmButtonText: 'Adicionar',
 			preConfirm: () => {
 				const name = document.getElementById('swal-name').value;
 				const subtitle = document.getElementById('swal-subtitle').value;
+				const template = document.getElementById('swal-template').value;
+				if (template && String(template).trim()) {
+					// when template provided, only template is necessary
+					return { templateCode: String(template).trim() };
+				}
 				if (!name || !String(name).trim()) { Swal.showValidationMessage('Nome do dia é obrigatório'); return false; }
 				if (!subtitle || !String(subtitle).trim()) { Swal.showValidationMessage('Legenda é obrigatória'); return false; }
 				return { name: String(name).trim(), subtitle: String(subtitle).trim() };
 			}
 		});
 		if (!form) return;
-		await fetch('/api/days',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(form)});
+		// if templateCode provided, send as templateCode; otherwise send name/subtitle
+		if (form.templateCode) {
+			await fetch('/api/days', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ templateCode: form.templateCode }) });
+		} else {
+			await fetch('/api/days', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+		}
 		await loadDays();
 	}
 
@@ -318,17 +328,24 @@ useEffect(()=>{
 				<section>
 					<div className="flex items-center justify-between mb-3">
 						<h3 className="text-sm font-medium">Dias</h3>
-						<button className="btn p-2" onClick={addDay} aria-label="Novo dia" title="Novo dia">
-							<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-								<path stroke="none" d="M0 0h24v24H0z" fill="none" />
-								<path d="M12.5 21h-6.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v5" />
-								<path d="M16 3v4" />
-								<path d="M8 3v4" />
-								<path d="M4 11h16" />
-								<path d="M16 19h6" />
-								<path d="M19 16v6" />
-							</svg>
-						</button>
+						<div className="flex items-center gap-2">
+							<button className="btn p-2" onClick={()=>router.push('/dashboard')} aria-label="Visão geral" title="Visão geral">
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
+									<path d="M9 3a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-4a2 2 0 0 1 -2 -2v-6a2 2 0 0 1 2 -2zm0 12a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-4a2 2 0 0 1 -2 -2v-2a2 2 0 0 1 2 -2zm10 -4a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-4a2 2 0 0 1 -2 -2v-6a2 2 0 0 1 2 -2zm0 -8a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-4a2 2 0 0 1 -2 -2v-2a2 2 0 0 1 2 -2z" />
+								</svg>
+							</button>
+							<button className="btn p-2" onClick={addDay} aria-label="Novo dia" title="Novo dia">
+								<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+									<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+									<path d="M12.5 21h-6.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v5" />
+									<path d="M16 3v4" />
+									<path d="M8 3v4" />
+									<path d="M4 11h16" />
+									<path d="M16 19h6" />
+									<path d="M19 16v6" />
+								</svg>
+							</button>
+						</div>
 					</div>
 					<div className="day-list">
 						{days.length===0 && (
@@ -391,6 +408,28 @@ useEffect(()=>{
 														<span>Adicionar exercício</span>
 													</button>
 
+													<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2" onClick={async ()=>{
+														setDayMenuOpen(false);
+														if (!selected) return;
+														try{
+															const res = await fetch(`/api/days/${selected.id}/share`, { method: 'POST' });
+															if (!res.ok) return Swal.fire({ icon: 'error', text: 'Falha ao gerar código de compartilhamento' });
+															const body = await res.json();
+															await navigator.clipboard.writeText(body.shareCode);
+															Swal.fire({ icon: 'success', text: 'Código copiado para área de transferência', title: body.shareCode });
+														}catch(e){ console.error(e); Swal.fire({ icon: 'error', text: 'Erro ao compartilhar' }); }
+													}}>
+														<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-600" aria-hidden>
+															<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+															<path d="M6 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+															<path d="M18 6m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+															<path d="M18 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+															<path d="M8.7 10.7l6.6 -3.4" />
+															<path d="M8.7 13.3l6.6 3.4" />
+														</svg>
+														<span>Compartilhar dia</span>
+													</button>
+
 													<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2 text-red-600" onClick={async ()=>{
 														setDayMenuOpen(false);
 														const result = await Swal.fire({ title: 'Excluir dia?', text: 'Isto removerá o dia e todos os exercícios e registros vinculados.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sim, excluir', cancelButtonText: 'Cancelar' });
@@ -406,6 +445,24 @@ useEffect(()=>{
 														</svg>
 														<span>Excluir dia</span>
 													</button>
+
+													{selected && selected.shareCode && (
+														<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2 text-slate-700" onClick={async ()=>{
+															setDayMenuOpen(false);
+															try{
+																const res = await fetch(`/api/days/${selected.id}/share`, { method: 'DELETE' });
+																if (!res.ok) return Swal.fire({ icon: 'error', text: 'Falha ao revogar código' });
+																await loadDays();
+																Swal.fire({ icon: 'success', text: 'Compartilhamento revogado' });
+															}catch(e){ console.error(e); Swal.fire({ icon: 'error', text: 'Erro ao revogar' }); }
+														}}>
+															<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+																<path d="M3 12h18" />
+																<path d="M12 5v14" />
+															</svg>
+															<span>Revogar compartilhamento</span>
+														</button>
+													)}
 												</div>
 											)}
 										</div>

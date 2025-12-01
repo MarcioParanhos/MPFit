@@ -19,6 +19,17 @@
       "user_id": 2,
       "name": "Segunda-feira",
       "subtitle": "Biceps / Costas",
+      "completed": true,
+      "startedAt": null,
+      "finishedAt": "2025-12-01T13:03:27.078Z",
+      "durationSeconds": 3,
+      "share_code": null
+    },
+    {
+      "id": 7,
+      "user_id": 1,
+      "name": "Segunda-feira",
+      "subtitle": "Biceps / Costas",
       "completed": false,
       "startedAt": null,
       "finishedAt": null,
@@ -51,7 +62,7 @@
   ],
   "logs": [],
   "_ids": {
-    "days": 6,
+    "days": 7,
     "workouts": 6,
     "logs": 2,
     "templates": 1,
