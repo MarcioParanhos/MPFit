@@ -42,6 +42,20 @@ function DayItem({ d, active, onClick }) {
 	)
 }
 
+function AddDayTile({ onClick }){
+	return (
+		<div onClick={onClick} className={`day-item add-day p-1 rounded`} role="button" tabIndex={0} aria-label="Adicionar dia" title="Adicionar dia">
+			<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+				<rect width="36" height="36" rx="8" fill="#FFF" stroke="#E6EEF8"/>
+				<g transform="translate(0,0)">
+					<path d="M18 10v16" stroke="#072000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+					<path d="M10 18h16" stroke="#072000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+				</g>
+			</svg>
+		</div>
+	);
+}
+
 export default function AppPage(){
 	const router = useRouter();
 	const [days,setDays] = useState([]);
@@ -54,10 +68,10 @@ export default function AppPage(){
 	const [dragOverIndex, setDragOverIndex] = useState(null);
 	const [dayMenuOpen, setDayMenuOpen] = useState(false);
 	const dayMenuRef = useRef(null);
-	const [daysMenuOpen, setDaysMenuOpen] = useState(false);
-	const daysMenuRef = useRef(null);
-	const [userMenuOpen, setUserMenuOpen] = useState(false);
-	const userMenuRef = useRef(null);
+
+	// off-canvas state
+	const [offCanvasOpen, setOffCanvasOpen] = useState(false);
+	const offCanvasRef = useRef(null);
 
 	const totalExercises = workouts.length;
 	const completedExercises = workouts.filter(w => !!w.completed).length;
@@ -323,27 +337,26 @@ export default function AppPage(){
 		return ()=> document.removeEventListener('mousedown', onDoc);
 	},[dayMenuOpen]);
 
-// close user menu on outside click
+// close off-canvas on outside click or ESC
 useEffect(()=>{
-    function onDoc(e){
-        if (!userMenuRef.current) return;
-        if (!userMenuRef.current.contains(e.target)) setUserMenuOpen(false);
-    }
-    if (userMenuOpen) document.addEventListener('mousedown', onDoc);
-    return ()=> document.removeEventListener('mousedown', onDoc);
-},[userMenuOpen]);
+	function onDoc(e){
+		if (!offCanvasRef.current) return;
+		if (!offCanvasRef.current.contains(e.target)) setOffCanvasOpen(false);
+	}
+	function onKey(e){ if (e.key === 'Escape') setOffCanvasOpen(false); }
+	if (offCanvasOpen) {
+		document.addEventListener('mousedown', onDoc);
+		document.addEventListener('keydown', onKey);
+	}
+	return ()=>{
+		document.removeEventListener('mousedown', onDoc);
+		document.removeEventListener('keydown', onKey);
+	};
+},[offCanvasOpen]);
 
 // (main menu removed)
 
-// close days menu on outside click
-useEffect(()=>{
-	function onDoc(e){
-		if (!daysMenuRef.current) return;
-		if (!daysMenuRef.current.contains(e.target)) setDaysMenuOpen(false);
-	}
-	if (daysMenuOpen) document.addEventListener('mousedown', onDoc);
-	return ()=> document.removeEventListener('mousedown', onDoc);
-},[daysMenuOpen]);
+// (days menu removed)
 
 	return (
 		<div className="app-shell mx-auto">
@@ -359,79 +372,86 @@ useEffect(()=>{
 					border-color: rgba(0,0,0,0.06) !important;
 					color: #072000 !important;
 				}
+
+				/* Off-canvas panel transitions: slower so user sees sliding */
+				.offcanvas-panel {
+					transform: translateX(100%);
+					transition: transform 700ms cubic-bezier(.16,1,.3,1);
+					will-change: transform;
+				}
+				.offcanvas-panel.offcanvas-open {
+					transform: translateX(0);
+				}
+				/* overlay smooth fade */
+				.fixed.inset-0.bg-black\\/40 {
+					transition: opacity 520ms ease;
+				}
+
+				/* Day selector tiles */
+				.day-list { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+				.day-item { cursor: pointer; display:inline-flex; align-items:center; justify-content:center; transition: transform 180ms ease, box-shadow 180ms ease; }
+				.day-item svg { display:block; }
+				.day-item:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(2,6,23,0.08); }
+				.day-item:focus { outline: 3px solid rgba(212,245,35,0.18); outline-offset: 2px; }
+				.day-item.active svg rect { fill: #d4f523 !important; stroke: #b7e124 !important; }
+				.day-item.active svg text { fill: #072000 !important; font-weight: 600; }
+				/* Add-day specific: keep neutral background (white) while keeping icon dark */
+				.day-item.add-day svg rect { fill: #FFF !important; stroke: #E6EEF8 !important; }
+				.day-item.add-day svg path, .day-item.add-day svg line { stroke: #072000 !important; }
+				.day-item.add-day:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 10px 30px rgba(16,24,40,0.12); }
 			`}</style>
 			<header className="header">
 				<div className="flex items-center gap-2">
 					<img src="/images/TRAINHUB.png" alt="TrainHub" className="h-8" />
 				</div>
 				<div className="flex gap-2 items-center">
-					{user && (
-						<div className="relative ml-2" ref={userMenuRef}>
-							<button type="button" onClick={(e)=>{ e.preventDefault(); setUserMenuOpen(v=>!v); }} className="flex items-center justify-center p-0" aria-haspopup="true" aria-expanded={userMenuOpen} aria-label="Usuário">
-								<div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium" style={{ background: '#d4f523', color: '#072000' }} aria-hidden>
-									{getInitials(user.name || user.email)}
-								</div>
-							</button>
-							{userMenuOpen && (
-								<div className="absolute right-0 mt-2 w-36 bg-white border border-slate-200 rounded-md shadow z-50">
-									<div className="py-1">
-										<button className="w-full text-left px-3 py-1 text-sm hover:bg-slate-100" onClick={async ()=>{ setUserMenuOpen(false); /* future: open profile */ }}>
-											Perfil
-										</button>
-										<button className="w-full text-left px-3 py-1 text-sm text-red-600 hover:bg-slate-50" onClick={async ()=>{ setUserMenuOpen(false); await fetch('/api/auth/logout', { method: 'POST' }); router.replace('/login'); }}>
-											Logout
-										</button>
-									</div>
-								</div>
-							)}
-						</div>
-					)}
+					{/* menu button replaces avatar — opens off-canvas */}
+					<button type="button" onClick={(e)=>{ e.preventDefault(); setOffCanvasOpen(v=>!v); }} className="flex items-center justify-center p-2" aria-haspopup="true" aria-expanded={offCanvasOpen} aria-label="Abrir menu" title="Abrir menu">
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+							<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+							<path d="M10 6h10" />
+							<path d="M4 12h16" />
+							<path d="M7 12h13" />
+							<path d="M4 18h10" />
+						</svg>
+					</button>
 				</div>
 			</header>
 			<main className="p-4">
 				<section>
 					<div className="flex items-center justify-between mb-3">
 						<h3 className="text-sm font-medium">Dias</h3>
-						<div className="flex items-center gap-2">
-							<div className="relative" ref={daysMenuRef}>
-								<button className="btn p-2" style={{ background: '#d4f523', color: '#072000' }} onClick={(e)=>{ e.preventDefault(); setDaysMenuOpen(v=>!v); }} aria-haspopup="true" aria-expanded={daysMenuOpen} aria-label="Menu de ações do dia" title="Ações">
-									<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
-										<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-										<path d="M10 6h10" />
-										<path d="M4 12h16" />
-										<path d="M7 12h13" />
-										<path d="M4 18h10" />
-									</svg>
-								</button>
-								{daysMenuOpen && (
-									<div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-md shadow z-50">
-										<div className="py-1">
-											<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2" onClick={async ()=>{ setDaysMenuOpen(false); router.push('/dashboard'); }}>
-												<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-600" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-													<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-													<path d="M8 3a3 3 0 0 1 3 3v1a3 3 0 0 1 -3 3h-2a3 3 0 0 1 -3 -3v-1a3 3 0 0 1 3 -3z" />
-													<path d="M8 12a3 3 0 0 1 3 3v3a3 3 0 0 1 -3 3h-2a3 3 0 0 1 -3 -3v-3a3 3 0 0 1 3 -3z" />
-													<path d="M18 3a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-2a3 3 0 0 1 -3 -3v-12a3 3 0 0 1 3 -3z" />
-												</svg>
-												<span>Dashboard</span>
-											</button>
-											<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2" onClick={async ()=>{ setDaysMenuOpen(false); await addDay(); }}>
-												<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-indigo-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-													<path stroke="none" d="M0 0h24v24H0z" fill="none" />
-													<path d="M12.5 21h-6.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v5" />
-													<path d="M16 3v4" />
-													<path d="M8 3v4" />
-													<path d="M4 11h16" />
-													<path d="M16 19h6" />
-													<path d="M19 16v6" />
-												</svg>
-												<span>Adicionar um dia</span>
-											</button>
-										</div>
+						{/* Off-canvas overlay and panel */}
+						<>
+							<div className={`fixed inset-0 bg-black/40 z-40 transition-opacity ${offCanvasOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={()=>setOffCanvasOpen(false)} aria-hidden />
+							<aside ref={offCanvasRef} className={`fixed top-0 right-0 h-full w-80 bg-white shadow-xl z-50 offcanvas-panel ${offCanvasOpen ? 'offcanvas-open' : ''}`} role="dialog" aria-modal="true" aria-hidden={!offCanvasOpen}>
+								<div className="p-4 border-b border-slate-100 flex items-center gap-3">
+									<div className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium" style={{ background: '#d4f523', color: '#072000' }} aria-hidden>
+										{getInitials(user ? (user.name || user.email) : '')}
 									</div>
-								)}
-							</div>
-						</div>
+									<div>
+										<div className="font-semibold">{user ? (user.name ? user.name : user.email) : 'Usuário'}</div>
+										<div className="text-xs text-slate-500">{user ? (user.email ? user.email : '') : ''}</div>
+									</div>
+								</div>
+								<nav className="p-4">
+									<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2" onClick={()=>{ setOffCanvasOpen(false); router.push('/dashboard'); }}>
+										<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-600" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+											<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+											<path d="M8 3a3 3 0 0 1 3 3v1a3 3 0 0 1 -3 3h-2a3 3 0 0 1 -3 -3v-1a3 3 0 0 1 3 -3z" />
+											<path d="M8 12a3 3 0 0 1 3 3v3a3 3 0 0 1 -3 3h-2a3 3 0 0 1 -3 -3v-3a3 3 0 0 1 3 -3z" />
+											<path d="M18 3a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-2a3 3 0 0 1 -3 -3v-12a3 3 0 0 1 3 -3z" />
+										</svg>
+										<span>Dashboard</span>
+									</button>
+
+									<hr className="my-3" />
+									<button className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-slate-50 flex items-center gap-2" onClick={async ()=>{ setOffCanvasOpen(false); await fetch('/api/auth/logout', { method: 'POST' }); router.replace('/login'); }}>
+										<span>Logout</span>
+									</button>
+								</nav>
+							</aside>
+						</>
 					</div>
 					<div className="day-list">
 						{days.length===0 && (
@@ -441,6 +461,7 @@ useEffect(()=>{
 							</div>
 						)}
 						{days.map(d => <DayItem key={d.id} d={d} active={selected && selected.id===d.id} onClick={()=>selectDay(d)} />)}
+						<AddDayTile key="add-day-tile" onClick={addDay} />
 					</div>
 				</section>
 
