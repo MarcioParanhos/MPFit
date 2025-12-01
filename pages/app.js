@@ -554,7 +554,7 @@ useEffect(()=>{
 											className={`card ${w.completed ? 'completed' : ''} ${draggingId===w.id ? 'opacity-60' : ''} ${dragOverIndex===idx ? 'ring-2 ring-dashed ring-slate-300' : ''}`}>
 											<div className="flex items-start justify-between gap-4">
 												<div className="flex-1 min-w-0">
-													<div className="font-semibold text-lg truncate">{w.name}</div>
+													<div className="font-semibold text-sm break-words">{w.name}</div>
 													<div className="text-sm text-slate-500 truncate">Séries: {w.plannedSets} • Reps: {w.plannedReps}</div>
 													{w.youtube && <div className="mt-1"><a className="text-indigo-600 text-sm" href={w.youtube} target="_blank" rel="noreferrer">Vídeo</a></div>}
 												</div>
