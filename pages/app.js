@@ -80,7 +80,17 @@ export default function AppPage(){
 	},[]);
 
 	async function loadDays(){
-		try{ const res = await fetch('/api/days'); const data = await res.json(); setDays(data); }catch(e){console.error(e)}
+		try{
+			const res = await fetch('/api/days');
+			const data = await res.json();
+			if (!Array.isArray(data)) {
+				console.warn('loadDays: unexpected response', data);
+				// if unauthorized or error, clear days to avoid runtime crashes
+				setDays([]);
+				return;
+			}
+			setDays(data);
+		}catch(e){console.error('loadDays error', e); setDays([]); }
 	}
 
 	async function selectDay(d){
