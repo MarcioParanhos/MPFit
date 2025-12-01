@@ -148,26 +148,34 @@ export default function AppPage(){
 		return ()=>{ if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
 	},[selected && selected.startedAt]);
 
+
 	async function addDay(){
-		const { value: form } = await Swal.fire({
-			title: 'Novo dia',
-			html: `<input id="swal-name" class="swal2-input" placeholder="Ex: Segunda, Pernas"><input id="swal-subtitle" class="swal2-input" placeholder="Legenda (obrigatória)"><input id="swal-template" class="swal2-input" placeholder="Template ID (opcional)">`,
-			focusConfirm: false,
-			showCancelButton: true,
-			confirmButtonText: 'Adicionar',
-			preConfirm: () => {
-				const name = document.getElementById('swal-name').value;
-				const subtitle = document.getElementById('swal-subtitle').value;
-				const template = document.getElementById('swal-template').value;
-				if (template && String(template).trim()) {
-					// when template provided, only template is necessary
-					return { templateCode: String(template).trim() };
-				}
-				if (!name || !String(name).trim()) { Swal.showValidationMessage('Nome do dia é obrigatório'); return false; }
-				if (!subtitle || !String(subtitle).trim()) { Swal.showValidationMessage('Legenda é obrigatória'); return false; }
-				return { name: String(name).trim(), subtitle: String(subtitle).trim() };
-			}
-		});
+	 		const { value: form } = await Swal.fire({
+	 			title: 'Novo dia',
+	 			html: `
+	 				<div style="display:flex;flex-direction:column;gap:8px">
+	 					<input id="swal-name" class="swal2-input" placeholder="Nome (ex: Segunda, Pernas)">
+	 					<input id="swal-subtitle" class="swal2-input" placeholder="Legenda (obrigatória)">
+	 					<input id="swal-template" class="swal2-input" placeholder="Template ID (opcional)">
+	 				</div>
+	 			`,
+	 			focusConfirm: false,
+	 			showCancelButton: true,
+	 			confirmButtonText: 'Adicionar',
+	 			customClass: { popup: 'compact-swal' },
+	 			preConfirm: () => {
+	 				const name = document.getElementById('swal-name').value;
+	 				const subtitle = document.getElementById('swal-subtitle').value;
+	 				const template = document.getElementById('swal-template').value;
+	 				if (template && String(template).trim()) {
+	 					// when template provided, only template is necessary
+	 					return { templateCode: String(template).trim() };
+	 				}
+	 				if (!name || !String(name).trim()) { Swal.showValidationMessage('Nome do dia é obrigatório'); return false; }
+	 				if (!subtitle || !String(subtitle).trim()) { Swal.showValidationMessage('Legenda é obrigatória'); return false; }
+	 				return { name: String(name).trim(), subtitle: String(subtitle).trim() };
+	 			}
+	 		});
 		if (!form) return;
 		// if templateCode provided, send as templateCode; otherwise send name/subtitle
 		if (form.templateCode) {
@@ -182,17 +190,25 @@ export default function AppPage(){
 		if(!selected) return Swal.fire({ icon: 'warning', text: 'Selecione um dia' });
 		const { value: result } = await Swal.fire({
 			title: 'Novo exercício',
-			html: `<input id="swal-name" class="swal2-input" placeholder="Nome do exercício"><input id="swal-sets" class="swal2-input" placeholder="Séries (ex: 3)"><input id="swal-reps" class="swal2-input" placeholder="Reps por série (ex: 8)"><input id="swal-youtube" class="swal2-input" placeholder="URL do YouTube (opcional)">`,
+			html: `
+				<div style="display:flex;flex-direction:column;gap:8px">
+					<input id="swal-name" class="swal2-input" placeholder="Nome do exercício">
+					<input id="swal-sets" class="swal2-input" placeholder="Séries (ex: 3)">
+					<input id="swal-reps" class="swal2-input" placeholder="Reps por série (ex: 8)">
+					<input id="swal-youtube" class="swal2-input" placeholder="URL do YouTube (opcional)">
+				</div>
+			`,
 			focusConfirm: false,
 			showCancelButton: true,
 			confirmButtonText: 'Adicionar',
+			customClass: { popup: 'compact-swal' },
 			preConfirm: () => {
 				const name = document.getElementById('swal-name').value;
 				const plannedSets = document.getElementById('swal-sets').value;
 				const plannedReps = document.getElementById('swal-reps').value;
 				const youtube = document.getElementById('swal-youtube').value;
-				if (!name) Swal.showValidationMessage('Nome do exercício é obrigatório');
-				return { name, plannedSets, plannedReps, youtube };
+				if (!name || !String(name).trim()) { Swal.showValidationMessage('Nome do exercício é obrigatório'); return false; }
+				return { name: String(name).trim(), plannedSets: plannedSets === '' ? 0 : Number(plannedSets), plannedReps: plannedReps === '' ? 0 : Number(plannedReps), youtube: youtube || null };
 			}
 		});
 		if (!result) return;
@@ -399,6 +415,25 @@ useEffect(()=>{
 				.day-item.add-day svg rect { fill: #FFF !important; stroke: #E6EEF8 !important; }
 				.day-item.add-day svg path, .day-item.add-day svg line { stroke: #072000 !important; }
 				.day-item.add-day:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 10px 30px rgba(16,24,40,0.12); }
+			`}</style>
+
+			{/* Compact SweetAlert2 styles for mobile-friendly modals */}
+			<style jsx global>{`
+				.compact-swal.swal2-popup {
+					max-width: 420px !important;
+					width: 92% !important;
+					padding: 0.85rem !important;
+					font-size: 14px !important;
+				}
+				.compact-swal .swal2-title { font-size: 16px !important; margin-bottom: 0.4rem; }
+				.compact-swal .swal2-html-container { padding: 0 !important; }
+				.compact-swal .swal2-input { font-size: 14px !important; padding: 8px 10px !important; height: auto !important; }
+				.compact-swal .swal2-input { font-size: 14px !important; padding: 8px 10px !important; height: auto !important; }
+				.compact-swal .swal2-actions { gap: 8px; padding-top: 8px; }
+				.compact-swal .swal2-checkbox, .compact-swal .swal2-validation-message { font-size: 13px !important; }
+				@media (min-width: 640px) {
+					.compact-swal.swal2-popup { max-width: 520px !important; }
+				}
 			`}</style>
 			<header className="header">
 				<div className="flex items-center gap-2">
