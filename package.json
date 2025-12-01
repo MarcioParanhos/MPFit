@@ -8,11 +8,13 @@
     "start": "next start -p 3001"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
     "next": "14.0.0",
+    "pg": "^8.11.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "sweetalert2": "11.7.18",
-    "pg": "^8.11.0"
+    "sweetalert2": "11.7.18"
   },
   "devDependencies": {
     "autoprefixer": "10.4.14",

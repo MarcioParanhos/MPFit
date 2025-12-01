@@ -13,6 +13,16 @@
       "id": 5,
       "name": "Quarta-Feira",
       "subtitle": "Biceps-triceps"
+    },
+    {
+      "id": 6,
+      "user_id": 2,
+      "name": "Segunda-feira",
+      "subtitle": "Biceps / Costas",
+      "completed": false,
+      "startedAt": null,
+      "finishedAt": null,
+      "durationSeconds": null
     }
   ],
   "workouts": [
@@ -41,10 +51,11 @@
   ],
   "logs": [],
   "_ids": {
-    "days": 5,
+    "days": 6,
     "workouts": 6,
     "logs": 2,
-    "templates": 1
+    "templates": 1,
+    "users": 2
   },
   "templates": [
     {
@@ -64,6 +75,21 @@
           "youtube": null
         }
       ]
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "email": "marcio@gmail.com",
+      "password_hash": "$2a$10$1VCGxunls7B/XByRoQlVaObFA5BKjW0WUaun.Zmc/0aROfaLPonfu",
+      "createdAt": "2025-12-01T11:55:26.047Z"
+    },
+    {
+      "id": 2,
+      "name": "Marcio Paranhos",
+      "email": "marcinho@gmail.com",
+      "password_hash": "$2a$10$iTRLJuL5sVpFIHg7lYI6OOY3zIrhnSYjDDu7KyperwMNJh5wsDhpS",
+      "createdAt": "2025-12-01T12:10:33.054Z"
     }
   ]
 }

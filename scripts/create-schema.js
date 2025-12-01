@@ -7,8 +7,19 @@ async function main(){
   const pool = new Pool({ connectionString: DATABASE_URL });
   try {
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name TEXT,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT now()
+      );
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS days (
         id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         name TEXT NOT NULL,
         subtitle TEXT,
         completed BOOLEAN DEFAULT FALSE,
@@ -21,6 +32,7 @@ async function main(){
       CREATE TABLE IF NOT EXISTS workouts (
         id SERIAL PRIMARY KEY,
         day_id INTEGER REFERENCES days(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         name TEXT NOT NULL,
         planned_sets INTEGER,
         planned_reps INTEGER,
@@ -34,6 +46,7 @@ async function main(){
       CREATE TABLE IF NOT EXISTS logs (
         id SERIAL PRIMARY KEY,
         workout_id INTEGER REFERENCES workouts(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         series INTEGER,
         reps INTEGER,
         weight NUMERIC,

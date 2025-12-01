@@ -16,6 +16,22 @@ function DayIcon({ label, completed }){
 	)
 }
 
+function getInitials(nameOrEmail){
+    if (!nameOrEmail) return '';
+    const s = String(nameOrEmail).trim();
+    const parts = s.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length-1].charAt(0)).toUpperCase();
+}
+
+function avatarColor(nameOrEmail){
+    const s = String(nameOrEmail || '');
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+    return `hsl(${h},60%,45%)`;
+}
+
 function DayItem({ d, active, onClick }) {
 	const completedClass = d && d.completed ? 'bg-emerald-50 ring-2 ring-emerald-200' : '';
 	const title = d ? `${d.name}${d.completed ? ' (concluído)' : ''}` : '';
@@ -29,6 +45,7 @@ function DayItem({ d, active, onClick }) {
 export default function AppPage(){
 	const router = useRouter();
 	const [days,setDays] = useState([]);
+	const [user, setUser] = useState(null);
 	const [selected, setSelected] = useState(null);
 	const [workouts, setWorkouts] = useState([]);
 	const [timerSeconds, setTimerSeconds] = useState(null);
@@ -37,11 +54,30 @@ export default function AppPage(){
 	const [dragOverIndex, setDragOverIndex] = useState(null);
 	const [dayMenuOpen, setDayMenuOpen] = useState(false);
 	const dayMenuRef = useRef(null);
+	const [userMenuOpen, setUserMenuOpen] = useState(false);
+	const userMenuRef = useRef(null);
 
 	const totalExercises = workouts.length;
 	const completedExercises = workouts.filter(w => !!w.completed).length;
 
-	useEffect(()=>{ loadDays(); },[]);
+	useEffect(()=>{
+		async function initAuthAndLoad(){
+			try{
+				const meRes = await fetch('/api/auth/me');
+				if (!meRes.ok) {
+					router.replace('/login');
+					return;
+				}
+				const me = await meRes.json();
+				setUser(me);
+				await loadDays();
+			}catch(e){
+				console.error('Auth check failed', e);
+				router.replace('/login');
+			}
+		}
+		initAuthAndLoad();
+	},[]);
 
 	async function loadDays(){
 		try{ const res = await fetch('/api/days'); const data = await res.json(); setDays(data); }catch(e){console.error(e)}
@@ -238,34 +274,62 @@ export default function AppPage(){
 		return ()=> document.removeEventListener('mousedown', onDoc);
 	},[dayMenuOpen]);
 
+// close user menu on outside click
+useEffect(()=>{
+    function onDoc(e){
+        if (!userMenuRef.current) return;
+        if (!userMenuRef.current.contains(e.target)) setUserMenuOpen(false);
+    }
+    if (userMenuOpen) document.addEventListener('mousedown', onDoc);
+    return ()=> document.removeEventListener('mousedown', onDoc);
+},[userMenuOpen]);
+
 	return (
 		<div className="app-shell mx-auto">
 			<header className="header">
-				<h1 className="text-lg font-bold">MPFit</h1>
-				<div className="flex gap-2">
-					<button className="btn p-2" onClick={addDay} aria-label="Adicionar Dia">
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
-							<path stroke="none" d="M0 0h24v24H0z" fill="none" />
-							<path d="M12.5 21h-6.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v5" />
-							<path d="M16 3v4" />
-							<path d="M8 3v4" />
-							<path d="M4 11h16" />
-							<path d="M16 19h6" />
-							<path d="M19 16v6" />
-						</svg>
-					</button>
-					<button className="btn bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => router.push('/')} aria-label="Logout">
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
-							<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-							<path d="M10 8v-2a2 2 0 0 1 2 -2h7a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-7a2 2 0 0 1 -2 -2v-2" />
-							<path d="M15 12h-12l3 -3" />
-							<path d="M6 15l-3 -3" />
-						</svg>
-					</button>
+				<div className="flex items-center gap-2">
+					<img src="/images/TRAINHUB.png" alt="TrainHub" className="h-8" />
+				</div>
+					<div className="flex gap-2 items-center">
+					{user && (
+						<div className="relative ml-2" ref={userMenuRef}>
+							<button type="button" onClick={(e)=>{ e.preventDefault(); setUserMenuOpen(v=>!v); }} className="flex items-center justify-center p-0" aria-haspopup="true" aria-expanded={userMenuOpen} aria-label="Usuário">
+								<div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium border" style={{ backgroundColor: avatarColor(user.name || user.email), borderColor: 'rgba(255,255,255,0.08)' }} aria-hidden>
+									{getInitials(user.name || user.email)}
+								</div>
+							</button>
+							{userMenuOpen && (
+								<div className="absolute right-0 mt-2 w-36 bg-white border border-slate-200 rounded-md shadow z-50">
+									<div className="py-1">
+										<button className="w-full text-left px-3 py-1 text-sm hover:bg-slate-100" onClick={async ()=>{ setUserMenuOpen(false); /* future: open profile */ }}>
+											Perfil
+										</button>
+										<button className="w-full text-left px-3 py-1 text-sm text-red-600 hover:bg-slate-50" onClick={async ()=>{ setUserMenuOpen(false); await fetch('/api/auth/logout', { method: 'POST' }); router.replace('/login'); }}>
+											Logout
+										</button>
+									</div>
+								</div>
+							)}
+						</div>
+					)}
 				</div>
 			</header>
 			<main className="p-4">
 				<section>
+					<div className="flex items-center justify-between mb-3">
+						<h3 className="text-sm font-medium">Dias</h3>
+						<button className="btn p-2" onClick={addDay} aria-label="Novo dia" title="Novo dia">
+							<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+								<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+								<path d="M12.5 21h-6.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v5" />
+								<path d="M16 3v4" />
+								<path d="M8 3v4" />
+								<path d="M4 11h16" />
+								<path d="M16 19h6" />
+								<path d="M19 16v6" />
+							</svg>
+						</button>
+					</div>
 					<div className="day-list">
 						{days.length===0 && (
 							<div className="card w-full text-center">
