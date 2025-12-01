@@ -294,7 +294,7 @@ useEffect(()=>{
 					{user && (
 						<div className="relative ml-2" ref={userMenuRef}>
 							<button type="button" onClick={(e)=>{ e.preventDefault(); setUserMenuOpen(v=>!v); }} className="flex items-center justify-center p-0" aria-haspopup="true" aria-expanded={userMenuOpen} aria-label="Usuário">
-								<div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium border" style={{ backgroundColor: avatarColor(user.name || user.email), borderColor: 'rgba(255,255,255,0.08)' }} aria-hidden>
+								<div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium bg-indigo-600" aria-hidden>
 									{getInitials(user.name || user.email)}
 								</div>
 							</button>
