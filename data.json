@@ -24,16 +24,6 @@
       "finishedAt": "2025-12-01T13:03:27.078Z",
       "durationSeconds": 3,
       "share_code": null
-    },
-    {
-      "id": 7,
-      "user_id": 1,
-      "name": "Segunda-feira",
-      "subtitle": "Biceps / Costas",
-      "completed": false,
-      "startedAt": null,
-      "finishedAt": null,
-      "durationSeconds": null
     }
   ],
   "workouts": [
@@ -58,12 +48,24 @@
       "currentWeight": null,
       "completed": false,
       "position": 4
+    },
+    {
+      "id": 7,
+      "day_id": 6,
+      "user_id": 2,
+      "name": "Cadeira Flexora",
+      "plannedSets": 4,
+      "plannedReps": 12,
+      "youtube": null,
+      "currentWeight": null,
+      "completed": false,
+      "position": 1
     }
   ],
   "logs": [],
   "_ids": {
     "days": 7,
-    "workouts": 6,
+    "workouts": 7,
     "logs": 2,
     "templates": 1,
     "users": 2

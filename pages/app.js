@@ -204,6 +204,33 @@ export default function AppPage(){
 		const res = await fetch(`/api/days/${selected.id}/workouts`); setWorkouts(await res.json());
 	}
 
+	async function editWorkout(w){
+		if(!w) return;
+		const esc = (s) => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+		const { value: result } = await Swal.fire({
+			title: 'Editar exercício',
+			html: `<input id="swal-name" class="swal2-input" placeholder="Nome do exercício" value="${esc(w.name)}"><input id="swal-sets" class="swal2-input" placeholder="Séries (ex: 3)" value="${w.plannedSets||''}"><input id="swal-reps" class="swal2-input" placeholder="Reps por série (ex: 8)" value="${w.plannedReps||''}"><input id="swal-youtube" class="swal2-input" placeholder="URL do YouTube (opcional)" value="${esc(w.youtube)}">`,
+			focusConfirm: false,
+			showCancelButton: true,
+			confirmButtonText: 'Salvar',
+			preConfirm: () => {
+				const name = document.getElementById('swal-name').value;
+				const plannedSets = document.getElementById('swal-sets').value;
+				const plannedReps = document.getElementById('swal-reps').value;
+				const youtube = document.getElementById('swal-youtube').value;
+				if (!name || !String(name).trim()) { Swal.showValidationMessage('Nome do exercício é obrigatório'); return false; }
+				return { name: String(name).trim(), plannedSets: plannedSets === '' ? 0 : Number(plannedSets), plannedReps: plannedReps === '' ? 0 : Number(plannedReps), youtube: youtube || null };
+			}
+		});
+		if (!result) return;
+		try{
+			await fetch(`/api/workouts/${w.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(result) });
+			const res = await fetch(`/api/days/${selected.id}/workouts`);
+			setWorkouts(await res.json());
+			Swal.fire({ icon: 'success', text: 'Exercício atualizado' });
+		}catch(e){ console.error(e); Swal.fire({ icon: 'error', text: 'Falha ao atualizar exercício' }); }
+	}
+
 	async function persistOrder(newOrder) {
 		if (!selected) return;
 		try {
@@ -525,6 +552,12 @@ useEffect(()=>{
 												<div className="flex flex-col items-end gap-2">
 													<div className="text-sm text-slate-500">Peso atual: <span className="font-semibold">{w.currentWeight ? w.currentWeight + ' kg' : '—'}</span></div>
 													<div className="flex items-center gap-2">
+														<button className="btn p-2" onClick={() => editWorkout(w)} aria-label="Editar exercício" title="Editar exercício">
+															<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+																<path d="M3 21v-3a4 4 0 0 1 4 -4h3" />
+																<path d="M14.5 6.5l3 3L7 20l-3 0 0 -3 10.5 -10.5z" />
+															</svg>
+														</button>
 														<button className="btn text-sm px-2 py-1" onClick={() => setCurrentWeight(w.id)} aria-label="Definir peso">
 															<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
 																<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
