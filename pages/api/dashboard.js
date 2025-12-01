@@ -66,8 +66,21 @@ export default async function handler(req, res) {
       return tb - ta;
     }).slice(0,6).map(d=>({ id: d.id, name: d.name, subtitle: d.subtitle, completed: !!d.completed }));
 
+    // average duration (seconds) — consider days that have durationSeconds or finishedAt/startedAt
+    const durations = [];
+    for (const d of days) {
+      if (d.durationSeconds || d.durationSeconds === 0) {
+        durations.push(Number(d.durationSeconds));
+      } else if (d.startedAt && d.finishedAt) {
+        const s = new Date(d.startedAt).getTime();
+        const f = new Date(d.finishedAt).getTime();
+        if (!isNaN(s) && !isNaN(f) && f > s) durations.push(Math.round((f - s) / 1000));
+      }
+    }
+    const avgDurationSeconds = durations.length ? Math.round(durations.reduce((a,b)=>a+b,0) / durations.length) : null;
+
     return res.status(200).json({
-      totalDays, completedDays, totalWorkouts, totalVolume, lastWorkoutDate, weekly, recentDays
+      totalDays, completedDays, totalWorkouts, totalVolume, lastWorkoutDate, weekly, recentDays, avgDurationSeconds
     });
   } catch (e) {
     console.error('dashboard error', e);

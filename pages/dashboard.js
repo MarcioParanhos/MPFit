@@ -56,8 +56,18 @@ export default function DashboardPage(){
   if (loading) return (<div className="p-6">Carregando painel...</div>);
   if (!data) return (<div className="p-6">Erro ao carregar painel.</div>);
 
-  const { totalDays, completedDays, totalWorkouts, totalVolume, lastWorkoutDate, weekly, recentDays } = data;
+  const { totalDays, completedDays, totalWorkouts, totalVolume, lastWorkoutDate, weekly, recentDays, avgDurationSeconds } = data;
   const maxVol = Math.max(...weekly.map(w=>w.volume), 1);
+
+  function formatDuration(sec){
+    if (sec === null || sec === undefined) return '—';
+    const s = Number(sec);
+    const h = Math.floor(s/3600);
+    const m = Math.floor((s%3600)/60);
+    const ss = s%60;
+    if (h>0) return `${h}h ${m}m`;
+    return `${m}m ${ss}s`;
+  }
 
   const handleBarClick = (w) => {
     Swal.fire({ title: `Detalhes ${w.date}`, html: `Volume: <b>${Math.round(w.volume)}</b><br/>Sessões: <b>${w.sessions}</b>`, icon: 'info' });
@@ -75,12 +85,14 @@ export default function DashboardPage(){
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <StatCard title="Dias" value={totalDays} subtitle={`Concluídos: ${completedDays}`} icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M7 14h.013" /><path d="M10.01 14h.005" /><path d="M13.01 14h.005" /><path d="M16.015 14h.005" /><path d="M13.015 17h.005" /><path d="M7.01 17h.005" /><path d="M10.01 17h.005" /></svg>} gradient="linear-gradient(90deg,#6366f1,#8b5cf6)" />
 
         <StatCard title="Exercícios" value={totalWorkouts} subtitle={`Último: ${lastWorkoutDate? new Date(lastWorkoutDate).toLocaleDateString() : '—'}`} icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 3a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /><path d="M3 14l4 1l.5 -.5" /><path d="M12 18v-3l-3 -2.923l.75 -5.077" /><path d="M6 10v-2l4 -1l2.5 2.5l2.5 .5" /><path d="M21 22a1 1 0 0 0 -1 -1h-16a1 1 0 0 0 -1 1" /><path d="M18 21l1 -11l2 -1" /></svg>} gradient="linear-gradient(90deg,#06b6d4,#0ea5e9)" />
 
         <StatCard title="Volume total" value={Math.round(totalVolume)} subtitle={"kg·reps"} icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7a1 1 0 0 1 1 1v8a1 1 0 0 1 -2 0v-3h-1a1 1 0 0 1 0 -2h1v-3a1 1 0 0 1 1 -1" /><path d="M20 7a1 1 0 0 1 1 1v3h1a1 1 0 0 1 0 2h-1v3a1 1 0 0 1 -2 0v-8a1 1 0 0 1 1 -1" /><path d="M16 5a2 2 0 0 1 2 2v10a2 2 0 1 1 -4 0v-4h-4v4a2 2 0 1 1 -4 0v-10a2 2 0 1 1 4 0v4h4v-4a2 2 0 0 1 2 -2" /></svg>} gradient="linear-gradient(90deg,#10b981,#34d399)" />
+
+        <StatCard title="Tempo médio" value={formatDuration(avgDurationSeconds)} subtitle={avgDurationSeconds ? `${Math.round(avgDurationSeconds/60)} min média` : '—'} icon={<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 7v5l3 3" /><path d="M21 12a9 9 0 1 1 -18 0a9 9 0 0 1 18 0" /></svg>} gradient="linear-gradient(90deg,#f59e0b,#f97316)" />
       </div>
 
       <div className="mb-6 card p-4 relative">
