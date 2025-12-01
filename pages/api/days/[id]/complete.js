@@ -1,10 +1,10 @@
 const db = require('../../../../lib/db');
 
-export default function handler(req, res){
+export default async function handler(req, res){
   const { id } = req.query;
   if (req.method !== 'POST') { res.setHeader('Allow','POST'); return res.status(405).end(); }
   try {
-    const day = db.completeDay(id);
+    const day = await db.completeDay(id);
     if (!day) return res.status(404).json({ error: 'day not found' });
     return res.status(200).json(day);
   } catch (err) {
