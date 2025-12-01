@@ -54,6 +54,8 @@ export default function AppPage(){
 	const [dragOverIndex, setDragOverIndex] = useState(null);
 	const [dayMenuOpen, setDayMenuOpen] = useState(false);
 	const dayMenuRef = useRef(null);
+	const [daysMenuOpen, setDaysMenuOpen] = useState(false);
+	const daysMenuRef = useRef(null);
 	const [userMenuOpen, setUserMenuOpen] = useState(false);
 	const userMenuRef = useRef(null);
 
@@ -331,6 +333,18 @@ useEffect(()=>{
     return ()=> document.removeEventListener('mousedown', onDoc);
 },[userMenuOpen]);
 
+// (main menu removed)
+
+// close days menu on outside click
+useEffect(()=>{
+	function onDoc(e){
+		if (!daysMenuRef.current) return;
+		if (!daysMenuRef.current.contains(e.target)) setDaysMenuOpen(false);
+	}
+	if (daysMenuOpen) document.addEventListener('mousedown', onDoc);
+	return ()=> document.removeEventListener('mousedown', onDoc);
+},[daysMenuOpen]);
+
 	return (
 		<div className="app-shell mx-auto">
 			<style jsx global>{`
@@ -350,11 +364,11 @@ useEffect(()=>{
 				<div className="flex items-center gap-2">
 					<img src="/images/TRAINHUB.png" alt="TrainHub" className="h-8" />
 				</div>
-					<div className="flex gap-2 items-center">
+				<div className="flex gap-2 items-center">
 					{user && (
 						<div className="relative ml-2" ref={userMenuRef}>
 							<button type="button" onClick={(e)=>{ e.preventDefault(); setUserMenuOpen(v=>!v); }} className="flex items-center justify-center p-0" aria-haspopup="true" aria-expanded={userMenuOpen} aria-label="Usuário">
-								<div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium bg-indigo-600" aria-hidden>
+								<div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium" style={{ background: '#d4f523', color: '#072000' }} aria-hidden>
 									{getInitials(user.name || user.email)}
 								</div>
 							</button>
@@ -379,22 +393,44 @@ useEffect(()=>{
 					<div className="flex items-center justify-between mb-3">
 						<h3 className="text-sm font-medium">Dias</h3>
 						<div className="flex items-center gap-2">
-							<button className="btn p-2" onClick={()=>router.push('/dashboard')} aria-label="Visão geral" title="Visão geral">
-								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
-									<path d="M9 3a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-4a2 2 0 0 1 -2 -2v-6a2 2 0 0 1 2 -2zm0 12a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-4a2 2 0 0 1 -2 -2v-2a2 2 0 0 1 2 -2zm10 -4a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-4a2 2 0 0 1 -2 -2v-6a2 2 0 0 1 2 -2zm0 -8a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-4a2 2 0 0 1 -2 -2v-2a2 2 0 0 1 2 -2z" />
-								</svg>
-							</button>
-							<button className="btn p-2" onClick={addDay} aria-label="Novo dia" title="Novo dia">
-								<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-									<path stroke="none" d="M0 0h24v24H0z" fill="none" />
-									<path d="M12.5 21h-6.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v5" />
-									<path d="M16 3v4" />
-									<path d="M8 3v4" />
-									<path d="M4 11h16" />
-									<path d="M16 19h6" />
-									<path d="M19 16v6" />
-								</svg>
-							</button>
+							<div className="relative" ref={daysMenuRef}>
+								<button className="btn p-2" style={{ background: '#d4f523', color: '#072000' }} onClick={(e)=>{ e.preventDefault(); setDaysMenuOpen(v=>!v); }} aria-haspopup="true" aria-expanded={daysMenuOpen} aria-label="Menu de ações do dia" title="Ações">
+									<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+										<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+										<path d="M10 6h10" />
+										<path d="M4 12h16" />
+										<path d="M7 12h13" />
+										<path d="M4 18h10" />
+									</svg>
+								</button>
+								{daysMenuOpen && (
+									<div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-md shadow z-50">
+										<div className="py-1">
+											<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2" onClick={async ()=>{ setDaysMenuOpen(false); router.push('/dashboard'); }}>
+												<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-600" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+													<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+													<path d="M8 3a3 3 0 0 1 3 3v1a3 3 0 0 1 -3 3h-2a3 3 0 0 1 -3 -3v-1a3 3 0 0 1 3 -3z" />
+													<path d="M8 12a3 3 0 0 1 3 3v3a3 3 0 0 1 -3 3h-2a3 3 0 0 1 -3 -3v-3a3 3 0 0 1 3 -3z" />
+													<path d="M18 3a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-2a3 3 0 0 1 -3 -3v-12a3 3 0 0 1 3 -3z" />
+												</svg>
+												<span>Dashboard</span>
+											</button>
+											<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2" onClick={async ()=>{ setDaysMenuOpen(false); await addDay(); }}>
+												<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-indigo-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+													<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+													<path d="M12.5 21h-6.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v5" />
+													<path d="M16 3v4" />
+													<path d="M8 3v4" />
+													<path d="M4 11h16" />
+													<path d="M16 19h6" />
+													<path d="M19 16v6" />
+												</svg>
+												<span>Adicionar um dia</span>
+											</button>
+										</div>
+									</div>
+								)}
+							</div>
 						</div>
 					</div>
 					<div className="day-list">
