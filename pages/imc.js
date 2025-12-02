@@ -1,5 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
+
+function getInitials(nameOrEmail){
+  if (!nameOrEmail) return '';
+  const s = String(nameOrEmail).trim();
+  const parts = s.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length-1].charAt(0)).toUpperCase();
+}
+
+function avatarColor(nameOrEmail){
+  const s = String(nameOrEmail || '');
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return `hsl(${h},60%,45%)`;
+}
 
 function bmiCategory(bmi){
   if (bmi === null || bmi === undefined || Number.isNaN(bmi)) return '';
@@ -11,6 +27,9 @@ function bmiCategory(bmi){
 
 export default function ImcPage(){
   const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [offCanvasOpen, setOffCanvasOpen] = useState(false);
+  const offCanvasRef = useRef(null);
   const [weight, setWeight] = useState(''); // kg
   const [height, setHeight] = useState(''); // cm
   const [bmi, setBmi] = useState(null);
@@ -19,13 +38,33 @@ export default function ImcPage(){
 
   useEffect(()=>{ load(); },[]);
 
+  // fetch user for header avatar and logout
+  useEffect(()=>{
+    let mounted = true;
+    (async ()=>{
+      try{
+        const res = await fetch('/api/auth/me');
+        if (!mounted) return;
+        if (!res.ok) return setUser(null);
+        const u = await res.json(); setUser(u);
+      }catch(e){ if (mounted) setUser(null); }
+    })();
+    return ()=>{ mounted = false; };
+  },[]);
+
   function load(){
     (async ()=>{
       try{
         const res = await fetch('/api/imc');
         if (res.status === 401) return router.replace('/login');
         const data = await res.json();
-        setRecords(Array.isArray(data) ? data : []);
+        const norm = Array.isArray(data) ? data.map(r => ({
+          ...r,
+          bmi: r.bmi === null || r.bmi === undefined ? null : Number(r.bmi),
+          weight: r.weight === null || r.weight === undefined ? null : Number(r.weight),
+          height: r.height === null || r.height === undefined ? null : Number(r.height)
+        })) : [];
+        setRecords(norm);
       }catch(e){ setRecords([]); }
     })();
   }
@@ -83,6 +122,23 @@ export default function ImcPage(){
     })();
   }
 
+  // close off-canvas on outside click or ESC
+  useEffect(()=>{
+    function onDoc(e){
+      if (!offCanvasRef.current) return;
+      if (!offCanvasRef.current.contains(e.target)) setOffCanvasOpen(false);
+    }
+    function onKey(e){ if (e.key === 'Escape') setOffCanvasOpen(false); }
+    if (offCanvasOpen) {
+      document.addEventListener('mousedown', onDoc);
+      document.addEventListener('keydown', onKey);
+    }
+    return ()=>{
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  },[offCanvasOpen]);
+
   function exportCSV(){
     const header = ['id','date','weight','height','bmi'];
     const rows = records.map(r => [r.id, r.date, r.weight, r.height, r.bmi]);
@@ -103,17 +159,95 @@ export default function ImcPage(){
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <style jsx global>{`
+        /* Off-canvas panel transitions: slower so user sees sliding */
+        .offcanvas-panel {
+          transform: translateX(100%);
+          transition: transform 700ms cubic-bezier(.16,1,.3,1);
+          will-change: transform;
+        }
+        .offcanvas-panel.offcanvas-open {
+          transform: translateX(0);
+        }
+        /* overlay smooth fade */
+        .fixed.inset-0.bg-black\/40 {
+          transition: opacity 520ms ease;
+        }
+
+        @media (min-width: 1024px) {
+          header.header { position: fixed; top: 0; left: 0; right: 0; width: 100%; z-index: 80; background: #fff; box-shadow: 0 2px 8px rgba(2,6,23,0.04); }
+          .offcanvas-panel { z-index: 90; }
+          main { min-height: calc(100vh - 64px); }
+        }
+      `}</style>
       <header className="header p-4 bg-white shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img src="/images/TRAINHUB.png" alt="TrainHub" className="h-8" />
           <h1 className="text-lg font-semibold">IMC</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="btn px-3 py-1 text-sm" onClick={()=>router.push('/app')}>Voltar</button>
+        <div className="flex gap-2 items-center">
+          {/* menu button replaces voltar — abre off-canvas */}
+          <button type="button" onClick={(e)=>{ e.preventDefault(); setOffCanvasOpen(v=>!v); }} className="flex items-center justify-center p-2" aria-haspopup="true" aria-expanded={offCanvasOpen} aria-label="Abrir menu" title="Abrir menu">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+              <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+              <path d="M10 6h10" />
+              <path d="M4 12h16" />
+              <path d="M7 12h13" />
+              <path d="M4 18h10" />
+            </svg>
+          </button>
         </div>
       </header>
 
       <main className="p-4 max-w-3xl mx-auto">
+        {/* Off-canvas overlay and panel (same behaviour as app.js) */}
+        <>
+          <div className={`fixed inset-0 bg-black/40 z-40 transition-opacity ${offCanvasOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={()=>setOffCanvasOpen(false)} aria-hidden />
+          <aside ref={offCanvasRef} className={`fixed top-0 right-0 h-full w-80 bg-white shadow-xl z-50 offcanvas-panel ${offCanvasOpen ? 'offcanvas-open' : ''}`} role="dialog" aria-modal="true" aria-hidden={!offCanvasOpen}>
+            <div className="p-4 border-b border-slate-100 flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium" style={{ background: '#d4f522', color: '#072000' }} aria-hidden>
+                {getInitials(user ? (user.name || user.email) : '')}
+              </div>
+              <div className="flex-1 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold">{user ? (user.name ? user.name : user.email) : 'Usuário'}</div>
+                  <div className="text-xs text-slate-500">{user ? (user.email ? user.email : '') : ''}</div>
+                </div>
+                <div>
+                  <button className="p-2 rounded hover:bg-slate-100" onClick={async ()=>{ setOffCanvasOpen(false); await fetch('/api/auth/logout', { method: 'POST' }); router.replace('/login'); }} aria-label="Sair">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                      <path d="M10 8v-2a2 2 0 0 1 2 -2h7a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-7a2 2 0 0 1 -2 -2v-2" />
+                      <path d="M15 12h-12l3 -3" />
+                      <path d="M6 15l-3 -3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <nav className="p-4">
+              <button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2" onClick={()=>{ setOffCanvasOpen(false); router.push('/dashboard'); }}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-600" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                  <path d="M8 3a3 3 0 0 1 3 3v1a3 3 0 0 1 -3 3h-2a3 3 0 0 1 -3 -3v-1a3 3 0 0 1 3 -3z" />
+                  <path d="M8 12a3 3 0 0 1 3 3v3a3 3 0 0 1 -3 3h-2a3 3 0 0 1 -3 -3v-3a3 3 0 0 1 3 -3z" />
+                  <path d="M18 3a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-2a3 3 0 0 1 -3 -3v-12a3 3 0 0 1 3 -3z" />
+                </svg>
+                <span>Dashboard</span>
+              </button>
+
+              <button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2 mt-2" onClick={()=>{ setOffCanvasOpen(false); router.push('/app'); }}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-slate-600" preserveAspectRatio="xMidYMid meet" aria-hidden>
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M4 7a1 1 0 0 1 1 1v8a1 1 0 0 1-2 0v-3H2a1 1 0 0 1 0-2h1V8a1 1 0 0 1 1-1" />
+                  <path d="M20 7a1 1 0 0 1 1 1v3h1a1 1 0 0 1 0 2h-1v3a1 1 0 0 1-2 0v-8a1 1 0 0 1 1-1" />
+                  <path d="M16 5a2 2 0 0 1 2 2v10a2 2 0 1 1-4 0v-4h-4v4a2 2 0 1 1-4 0V7a2 2 0 1 1 4 0v4h4V7a2 2 0 0 1 2-2" />
+                </svg>
+                <span>Treinos</span>
+              </button>
+            </nav>
+          </aside>
+        </>
         <section className="card p-4">
           <h2 className="font-semibold text-lg mb-2">Calculadora de IMC</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
