@@ -25,6 +25,18 @@ function bmiCategory(bmi){
   return 'Obesidade';
 }
 
+function CategoryBadge({ bmi }){
+  if (bmi === null || bmi === undefined || Number.isNaN(bmi)) return null;
+  const cat = bmiCategory(bmi);
+  let classes = 'inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ';
+  // choose gentle background + darker text for contrast
+  if (cat === 'Abaixo do peso') classes += 'bg-blue-100 text-blue-800';
+  else if (cat === 'Normal') classes += 'bg-emerald-100 text-emerald-800';
+  else if (cat === 'Sobrepeso') classes += 'bg-amber-100 text-amber-800';
+  else classes += 'bg-red-100 text-red-800';
+  return <span className={classes} aria-hidden>{cat}</span>;
+}
+
 export default function ImcPage(){
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -282,7 +294,7 @@ export default function ImcPage(){
             <div className="text-sm text-slate-600">Resultado</div>
             <div className="mt-2 inline-flex items-baseline gap-3">
               <div className="text-3xl font-mono">{bmi ?? '—'}</div>
-              <div className="text-sm text-slate-600">{bmi ? `(${bmiCategory(bmi)})` : ''}</div>
+              <div className="text-sm">{bmi ? <CategoryBadge bmi={bmi} /> : ''}</div>
             </div>
           </div>
         </section>
@@ -290,10 +302,6 @@ export default function ImcPage(){
         <section className="mt-4 card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold">Histórico</h3>
-            <div className="flex items-center gap-2">
-              <button className="btn text-sm px-3 py-1" onClick={exportCSV} disabled={!records.length}>Exportar CSV</button>
-              <button className="btn text-sm px-3 py-1 text-red-600" onClick={clearAll} disabled={!records.length}>Limpar</button>
-            </div>
           </div>
 
           {records.length===0 ? (
@@ -304,12 +312,18 @@ export default function ImcPage(){
               <ul className="space-y-2">
                 {records.map(r => (
                   <li key={r.id} className="flex items-center justify-between p-2 border rounded">
-                    <div>
-                      <div className="text-sm font-medium">{new Date(r.date).toLocaleString()}</div>
-                      <div className="text-sm text-slate-600">Peso: {r.weight} kg • Altura: {r.height} • IMC: {r.bmi} ({bmiCategory(r.bmi)})</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium whitespace-normal break-words">{new Date(r.date).toLocaleString()}</div>
+                      <div className="text-sm text-slate-600 whitespace-normal break-words">Peso: {r.weight} kg • Altura: {r.height} • IMC: {r.bmi} <span className="ml-2 inline-block align-middle">{<CategoryBadge bmi={r.bmi} />}</span></div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <button className="btn text-sm text-red-600" onClick={()=>remove(r.id)}>Remover</button>
+                    <div className="flex flex-none items-center ml-3">
+                      <button aria-label="Remover" title="Remover" onClick={()=>remove(r.id)} className="p-2 rounded" style={{ background: '#d4f522', color: '#072000' }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
+                          <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                          <path d="M20 6a1 1 0 0 1 .117 1.993l-.117 .007h-.081l-.919 11a3 3 0 0 1 -2.824 2.995l-.176 .005h-8c-1.598 0 -2.904 -1.249 -2.992 -2.75l-.005 -.167l-.923 -11.083h-.08a1 1 0 0 1 -.117 -1.993l.117 -.007h16z" />
+                          <path d="M14 2a2 2 0 0 1 2 2a1 1 0 0 1 -1.993 .117l-.007 -.117h-4l-.007 .117a1 1 0 0 1 -1.993 -.117a2 2 0 0 1 1.85 -1.995l.15 -.005h4z" />
+                        </svg>
+                      </button>
                     </div>
                   </li>
                 ))}
