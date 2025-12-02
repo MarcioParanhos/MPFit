@@ -175,15 +175,14 @@ export default function ImcPage(){
         }
 
         @media (min-width: 1024px) {
-          header.header { position: fixed; top: 0; left: 0; right: 0; width: 100%; z-index: 80; background: #fff; box-shadow: 0 2px 8px rgba(2,6,23,0.04); }
+          header.header { position: fixed; top: 0; left: 0; right: 0; width: 100%; z-index: 80; background: #fff; box-shadow: 0 2px 8px rgba(2,6,23,0.04); display: flex; align-items: center; height: 64px; }
           .offcanvas-panel { z-index: 90; }
-          main { min-height: calc(100vh - 64px); }
+          main { min-height: calc(100vh - 64px); padding-top: 64px; }
         }
       `}</style>
-      <header className="header p-4 bg-white shadow-sm flex items-center justify-between">
+      <header className="header p-4 bg-white shadow-sm flex items-center justify-between lg:fixed lg:top-0 lg:left-0 lg:right-0 lg:h-16 lg:z-50">
         <div className="flex items-center gap-3">
           <img src="/images/TRAINHUB.png" alt="TrainHub" className="h-8" />
-          <h1 className="text-lg font-semibold">IMC</h1>
         </div>
         <div className="flex gap-2 items-center">
           {/* menu button replaces voltar — abre off-canvas */}
@@ -199,7 +198,7 @@ export default function ImcPage(){
         </div>
       </header>
 
-      <main className="p-4 max-w-3xl mx-auto">
+      <main className="p-4 w-full lg:pt-16">
         {/* Off-canvas overlay and panel (same behaviour as app.js) */}
         <>
           <div className={`fixed inset-0 bg-black/40 z-40 transition-opacity ${offCanvasOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={()=>setOffCanvasOpen(false)} aria-hidden />
@@ -261,8 +260,20 @@ export default function ImcPage(){
             </label>
             <div className="flex items-end">
               <div className="w-full flex gap-2">
-                <button className="btn bg-indigo-600 text-white px-3 py-2 rounded" onClick={compute}>Calcular</button>
-                <button className="btn bg-emerald-600 text-white px-3 py-2 rounded" onClick={saveRecord} disabled={!bmi}>Salvar</button>
+                <button aria-label="Calcular" title="Calcular" className="btn px-3 py-2 rounded flex items-center justify-center" style={{ background: '#d4f522', color: '#072000' }} onClick={compute}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M18 2a3 3 0 0 1 3 3v14a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-14a3 3 0 0 1 3 -3zm-10 15a1 1 0 0 0 -1 1l.007 .127a1 1 0 0 0 1.993 -.117l-.007 -.127a1 1 0 0 0 -.993 -.883zm4 0a1 1 0 0 0 -1 1l.007 .127a1 1 0 0 0 1.993 -.117l-.007 -.127a1 1 0 0 0 -.993 -.883zm4 0a1 1 0 0 0 -1 1l.007 .127a1 1 0 0 0 1.993 -.117l-.007 -.127a1 1 0 0 0 -.993 -.883zm-8 -4a1 1 0 0 0 -1 1l.007 .127a1 1 0 0 0 1.993 -.117l-.007 -.127a1 1 0 0 0 -.993 -.883zm4 0a1 1 0 0 0 -1 1l.007 .127a1 1 0 0 0 1.993 -.117l-.007 -.127a1 1 0 0 0 -.993 -.883zm4 0a1 1 0 0 0 -1 1l.007 .127a1 1 0 0 0 1.993 -.117l-.007 -.127a1 1 0 0 0 -.993 -.883zm-1 -7h-6a2 2 0 0 0 -2 2v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2 -2v-1a2 2 0 0 0 -2 -2z" />
+                  </svg>
+                </button>
+                <button aria-label="Salvar" title="Salvar" className="btn px-3 py-2 rounded flex items-center justify-center" style={{ background: '#d4f522', color: '#072000' }} onClick={saveRecord} disabled={!bmi}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" />
+                    <path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+                    <path d="M14 4l0 4l-6 0l0 -4" />
+                  </svg>
+                </button>
               </div>
             </div>
           </div>
