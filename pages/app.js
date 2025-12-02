@@ -513,6 +513,14 @@ useEffect(()=>{
 										<span>Dashboard</span>
 									</button>
 
+									<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2" onClick={()=>{ setOffCanvasOpen(false); router.push('/imc'); }}>
+										<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-600" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+											<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+											<path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 2a1 1 0 0 1 .993.883L13 6v6a1 1 0 0 1-.883.993L12 13a1 1 0 0 1-.993-.883L11 12V6a1 1 0 0 1 1-1zm0 14a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" />
+										</svg>
+										<span>IMC</span>
+									</button>
+
 
 								</nav>
 							</aside>
