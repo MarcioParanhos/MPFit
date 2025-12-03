@@ -856,11 +856,25 @@ useEffect(()=>{
 				</section>
 			</main>
 
+				{/* Modal animations (pop in/out similar to SweetAlert2) */}
+				<style jsx global>{`
+					@keyframes popIn {
+						from { opacity: 0; transform: translateY(-12px) scale(0.96); filter: blur(4px); }
+						to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+					}
+					@keyframes popOut {
+						from { opacity: 1; transform: translateY(0) scale(1); }
+						to { opacity: 0; transform: translateY(-6px) scale(0.98); }
+					}
+					.modal-pop { animation: popIn 320ms cubic-bezier(.16,1,.3,1); transform-origin: center top; }
+					.modal-pop-exit { animation: popOut 220ms ease forwards; }
+				`}</style>
+
 				{/* Custom Add Exercise Modal (replaces SweetAlert2 for creation) */}
 				{showAddExerciseModal && (
 					<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
 						<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowAddExerciseModal(false); }} aria-hidden />
-						<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4" style={{ zIndex: 10000 }}>
+						<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop" style={{ zIndex: 10000 }}>
 							<h3 className="text-lg font-semibold mb-3">Novo exercício</h3>
 							<div className="space-y-3">
 								<label className="block text-sm">Exercício</label>
@@ -880,7 +894,16 @@ useEffect(()=>{
 								</div>
 								<div className="mt-4 flex justify-end gap-2">
 								<button className="px-3 py-2 rounded border" onClick={()=>setShowAddExerciseModal(false)}>Cancelar</button>
-								<button className="px-3 py-2 rounded bg-indigo-600 text-white" onClick={handleConfirmAddWorkout} disabled={!modalExerciseId || modalLoading}>{modalLoading ? '...' : 'Adicionar'}</button>
+								<button aria-label="Adicionar" title="Adicionar" className="px-3 py-2 rounded" onClick={handleConfirmAddWorkout} disabled={!modalExerciseId || modalLoading} style={{ backgroundColor: '#d4f523', color: '#072000' }}>
+									{modalLoading ? '...' : (
+										<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+											<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+											<path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" />
+											<path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+											<path d="M14 4l0 4l-6 0l0 -4" />
+										</svg>
+									)}
+								</button>
 							</div>
 						</div>
 					</div>
@@ -890,7 +913,7 @@ useEffect(()=>{
 				{showEditModal && editModalWorkout && (
 					<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
 						<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowEditModal(false); }} aria-hidden />
-						<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4" style={{ zIndex: 10000 }}>
+						<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop" style={{ zIndex: 10000 }}>
 							<h3 className="text-lg font-semibold mb-3">Editar exercício</h3>
 							<div className="space-y-3">
 								<label className="block text-sm">Exercício</label>
@@ -903,7 +926,14 @@ useEffect(()=>{
 							</div>
 							<div className="mt-4 flex justify-end gap-2">
 								<button className="px-3 py-2 rounded border" onClick={()=>setShowEditModal(false)}>Cancelar</button>
-								<button className="px-3 py-2 rounded bg-indigo-600 text-white" onClick={handleConfirmEditWorkout} disabled={editModalLoading}>{editModalLoading ? '...' : 'Salvar'}</button>
+								<button aria-label="Salvar" title="Salvar" className="px-3 py-2 rounded" onClick={handleConfirmEditWorkout} disabled={editModalLoading} style={{ backgroundColor: '#d4f523', color: '#072000' }}>{editModalLoading ? '...' : (
+									<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+										<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+										<path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" />
+										<path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+										<path d="M14 4l0 4l-6 0l0 -4" />
+									</svg>
+								)}</button>
 							</div>
 						</div>
 					</div>
