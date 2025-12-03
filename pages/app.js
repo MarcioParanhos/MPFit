@@ -874,11 +874,21 @@ useEffect(()=>{
 				{showAddExerciseModal && (
 					<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
 						<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowAddExerciseModal(false); }} aria-hidden />
-						<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop" style={{ zIndex: 10000 }}>
-							<h3 className="text-lg font-semibold mb-3">Novo exercício</h3>
+						<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop mx-4" style={{ zIndex: 10000, position: 'relative' }}>
+							<button aria-label="Fechar" title="Fechar" className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowAddExerciseModal(false)}>
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+									<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+									<path d="M18 6l-12 12" />
+									<path d="M6 6l12 12" />
+								</svg>
+							</button>
+							<div className="mb-3">
+								<h3 className="text-lg font-semibold">Novo exercício</h3>
+								<div className="text-sm text-slate-500">Selecione um exercício do catálogo e defina séries e repetições.</div>
+							</div>
 							<div className="space-y-3">
-								<label className="block text-sm">Exercício</label>
-								<select ref={modalFirstRef} className="w-full border rounded px-2 py-2" value={modalExerciseId} onChange={(e)=>{ setModalExerciseId(e.target.value); }}>
+								<label className="block text-sm font-medium">Exercício</label>
+								<select ref={modalFirstRef} className="w-full border border-slate-200 bg-slate-50 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={modalExerciseId} onChange={(e)=>{ setModalExerciseId(e.target.value); }}>
 									{exercisesList && exercisesList.length ? exercisesList.map(ex => (
 										<option key={ex.id} value={ex.id}>{ex.name}{ex.targetMuscle ? ' — '+ex.targetMuscle : ''}</option>
 									)) : null}
@@ -886,15 +896,20 @@ useEffect(()=>{
 								{(!exercisesList || exercisesList.length === 0) && (
 									<div className="text-sm text-slate-600 mt-2">Nenhum exercício disponível. Cadastre exercícios no catálogo primeiro.</div>
 								)}
-								<label className="block text-sm">Séries</label>
-								<input className="w-full border rounded px-2 py-2" value={modalSets} onChange={(e)=>setModalSets(e.target.value)} placeholder="Ex: 3" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmAddWorkout(); }} />
-								<label className="block text-sm">Reps por série</label>
-								<input className="w-full border rounded px-2 py-2" value={modalReps} onChange={(e)=>setModalReps(e.target.value)} placeholder="Ex: 8" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmAddWorkout(); }} />
-								{modalError ? <div className="text-sm text-red-600 mb-2" role="alert">{modalError}</div> : null}
+								<div className="grid grid-cols-2 gap-3">
+									<div>
+										<label className="block text-sm font-medium">Séries</label>
+										<input className="w-full border border-slate-200 bg-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={modalSets} onChange={(e)=>setModalSets(e.target.value)} placeholder="Ex: 3" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmAddWorkout(); }} />
+									</div>
+									<div>
+										<label className="block text-sm font-medium">Reps por série</label>
+										<input className="w-full border border-slate-200 bg-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={modalReps} onChange={(e)=>setModalReps(e.target.value)} placeholder="Ex: 8" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmAddWorkout(); }} />
+									</div>
 								</div>
-								<div className="mt-4 flex justify-end gap-2">
-								<button className="px-3 py-2 rounded border" onClick={()=>setShowAddExerciseModal(false)}>Cancelar</button>
-								<button aria-label="Adicionar" title="Adicionar" className="px-3 py-2 rounded" onClick={handleConfirmAddWorkout} disabled={!modalExerciseId || modalLoading} style={{ backgroundColor: '#d4f523', color: '#072000' }}>
+								{modalError ? <div className="text-sm text-red-600 mb-2" role="alert">{modalError}</div> : null}
+							</div>
+							<div className="mt-4 flex justify-end">
+								<button aria-label="Adicionar" title="Adicionar" className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-semibold shadow-sm hover:shadow-md transition" onClick={handleConfirmAddWorkout} disabled={!modalExerciseId || modalLoading} style={{ backgroundColor: '#d4f523', color: '#072000' }}>
 									{modalLoading ? '...' : (
 										<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
 											<path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -913,26 +928,41 @@ useEffect(()=>{
 				{showEditModal && editModalWorkout && (
 					<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
 						<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowEditModal(false); }} aria-hidden />
-						<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop" style={{ zIndex: 10000 }}>
-							<h3 className="text-lg font-semibold mb-3">Editar exercício</h3>
+						<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop mx-4" style={{ zIndex: 10000, position: 'relative' }}>
+							<button aria-label="Fechar" title="Fechar" className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowEditModal(false)}>
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+									<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+									<path d="M18 6l-12 12" />
+									<path d="M6 6l12 12" />
+								</svg>
+							</button>
+							<div className="mb-3">
+								<h3 className="text-lg font-semibold">Editar exercício</h3>
+								<div className="text-sm text-slate-500">Ajuste séries e repetições para este exercício.</div>
+							</div>
 							<div className="space-y-3">
-								<label className="block text-sm">Exercício</label>
-								<div className="w-full border rounded px-2 py-2 bg-slate-50 text-sm">{editModalWorkout.name}</div>
-								<label className="block text-sm">Séries</label>
-								<input ref={editModalFirstRef} className="w-full border rounded px-2 py-2" value={editModalSets} onChange={(e)=>setEditModalSets(e.target.value)} placeholder="Ex: 3" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmEditWorkout(); }} />
-								<label className="block text-sm">Reps por série</label>
-								<input className="w-full border rounded px-2 py-2" value={editModalReps} onChange={(e)=>setEditModalReps(e.target.value)} placeholder="Ex: 8" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmEditWorkout(); }} />
+								<label className="block text-sm font-medium">Exercício</label>
+								<div className="w-full border border-slate-200 rounded-md px-3 py-2 bg-slate-50 text-sm">{editModalWorkout.name}</div>
+								<div className="grid grid-cols-2 gap-3">
+									<div>
+										<label className="block text-sm font-medium">Séries</label>
+										<input ref={editModalFirstRef} className="w-full border border-slate-200 bg-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={editModalSets} onChange={(e)=>setEditModalSets(e.target.value)} placeholder="Ex: 3" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmEditWorkout(); }} />
+									</div>
+									<div>
+										<label className="block text-sm font-medium">Reps por série</label>
+										<input className="w-full border border-slate-200 bg-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={editModalReps} onChange={(e)=>setEditModalReps(e.target.value)} placeholder="Ex: 8" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmEditWorkout(); }} />
+									</div>
+								</div>
 								{editModalError ? <div className="text-sm text-red-600 mt-2" role="alert">{editModalError}</div> : null}
 							</div>
-							<div className="mt-4 flex justify-end gap-2">
-								<button className="px-3 py-2 rounded border" onClick={()=>setShowEditModal(false)}>Cancelar</button>
-								<button aria-label="Salvar" title="Salvar" className="px-3 py-2 rounded" onClick={handleConfirmEditWorkout} disabled={editModalLoading} style={{ backgroundColor: '#d4f523', color: '#072000' }}>{editModalLoading ? '...' : (
-									<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
-										<path stroke="none" d="M0 0h24v24H0z" fill="none" />
-										<path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" />
-										<path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
-										<path d="M14 4l0 4l-6 0l0 -4" />
-									</svg>
+							<div className="mt-4 flex justify-end">
+								<button aria-label="Salvar" title="Salvar" className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-semibold shadow-sm hover:shadow-md transition" onClick={handleConfirmEditWorkout} disabled={editModalLoading} style={{ backgroundColor: '#d4f523', color: '#072000' }}>{editModalLoading ? '...' : (
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+									<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+									<path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" />
+									<path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+									<path d="M14 4l0 4l-6 0l0 -4" />
+								</svg>
 								)}</button>
 							</div>
 						</div>
