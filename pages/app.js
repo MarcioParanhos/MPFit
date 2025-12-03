@@ -62,6 +62,29 @@ export default function AppPage(){
 	const [user, setUser] = useState(null);
 	const [selected, setSelected] = useState(null);
 	const [workouts, setWorkouts] = useState([]);
+	const [exercisesList, setExercisesList] = useState([]);
+	const [showAddExerciseModal, setShowAddExerciseModal] = useState(false);
+	const [modalExerciseId, setModalExerciseId] = useState('');
+	const [modalSets, setModalSets] = useState('');
+	const [modalReps, setModalReps] = useState('');
+	const [modalError, setModalError] = useState('');
+	const [modalLoading, setModalLoading] = useState(false);
+	const modalFirstRef = useRef(null);
+
+	// Image preview modal state
+	const [showImageModal, setShowImageModal] = useState(false);
+	const [imageModalSrc, setImageModalSrc] = useState('');
+	const [imageModalTitle, setImageModalTitle] = useState('');
+	const imageModalCloseRef = useRef(null);
+
+	// Edit modal state (new modal, same pattern as creation)
+	const [showEditModal, setShowEditModal] = useState(false);
+	const [editModalWorkout, setEditModalWorkout] = useState(null);
+	const [editModalSets, setEditModalSets] = useState('');
+	const [editModalReps, setEditModalReps] = useState('');
+	const [editModalLoading, setEditModalLoading] = useState(false);
+	const [editModalError, setEditModalError] = useState('');
+	const editModalFirstRef = useRef(null);
 	const [timerSeconds, setTimerSeconds] = useState(null);
 	const timerRef = useRef(null);
 	const [draggingId, setDraggingId] = useState(null);
@@ -87,6 +110,8 @@ export default function AppPage(){
 				const me = await meRes.json();
 				setUser(me);
 				await loadDays();
+				// load exercises catalog for selects and card previews
+				try { const r = await fetch('/api/exercises'); if (r.ok) setExercisesList(await r.json()); } catch(e) { /* ignore */ }
 			}catch(e){
 				console.error('Auth check failed', e);
 				router.replace('/login');
@@ -186,35 +211,53 @@ export default function AppPage(){
 		await loadDays();
 	}
 
-	async function addWorkout(){
+	function addWorkout(){
 		if(!selected) return Swal.fire({ icon: 'warning', text: 'Selecione um dia' });
-		const { value: result } = await Swal.fire({
-			title: 'Novo exercício',
-			html: `
-				<div style="display:flex;flex-direction:column;gap:8px">
-					<input id="swal-name" class="swal2-input" placeholder="Nome do exercício">
-					<input id="swal-sets" class="swal2-input" placeholder="Séries (ex: 3)">
-					<input id="swal-reps" class="swal2-input" placeholder="Reps por série (ex: 8)">
-					<input id="swal-youtube" class="swal2-input" placeholder="URL do YouTube (opcional)">
-				</div>
-			`,
-			focusConfirm: false,
-			showCancelButton: true,
-			confirmButtonText: 'Adicionar',
-			customClass: { popup: 'compact-swal' },
-			preConfirm: () => {
-				const name = document.getElementById('swal-name').value;
-				const plannedSets = document.getElementById('swal-sets').value;
-				const plannedReps = document.getElementById('swal-reps').value;
-				const youtube = document.getElementById('swal-youtube').value;
-				if (!name || !String(name).trim()) { Swal.showValidationMessage('Nome do exercício é obrigatório'); return false; }
-				return { name: String(name).trim(), plannedSets: plannedSets === '' ? 0 : Number(plannedSets), plannedReps: plannedReps === '' ? 0 : Number(plannedReps), youtube: youtube || null };
+		// load exercises then open modal
+		(async ()=>{
+			try {
+				const r = await fetch('/api/exercises');
+				let loaded = [];
+				if (r.ok) loaded = await r.json();
+				setExercisesList(loaded);
+				// default selection: first exercise or empty
+					setModalExerciseId(loaded && loaded.length ? String(loaded[0].id) : '');
+			} catch(e) {
+				console.error('failed loading exercises for modal', e);
+				setModalExerciseId('__new');
 			}
-		});
-		if (!result) return;
-		const { name, plannedSets, plannedReps, youtube } = result;
-		await fetch(`/api/days/${selected.id}/workouts`,{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, plannedSets, plannedReps, youtube})});
-		const res = await fetch(`/api/days/${selected.id}/workouts`); setWorkouts(await res.json());
+			setModalSets(''); setModalReps(''); setModalError('');
+			setShowAddExerciseModal(true);
+		})();
+	}
+
+	async function handleConfirmAddWorkout(){
+		if (!selected) return;
+		if (modalLoading) return;
+		setModalError('');
+		setModalLoading(true);
+		try {
+			let exerciseId = modalExerciseId ? Number(modalExerciseId) : null;
+			let name = null;
+			const plannedSets = modalSets === '' ? 0 : Number(modalSets);
+			const plannedReps = modalReps === '' ? 0 : Number(modalReps);
+			if (!exerciseId) {
+				setModalError('Selecione um exercício do catálogo');
+				setModalLoading(false);
+				return;
+			}
+			// send workout creation (no youtube field)
+			const createWorkoutRes = await fetch(`/api/days/${selected.id}/workouts`,{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name, plannedSets, plannedReps, exerciseId })});
+			if (!createWorkoutRes.ok) throw new Error('Falha ao criar treino');
+			const res = await fetch(`/api/days/${selected.id}/workouts`);
+			setWorkouts(await res.json());
+			setShowAddExerciseModal(false);
+		} catch (e) {
+			console.error(e);
+			setModalError(e.message || 'Erro inesperado');
+		} finally {
+			setModalLoading(false);
+		}
 	}
 
 	async function deleteWorkout(workoutId){
@@ -246,31 +289,33 @@ export default function AppPage(){
 		const res = await fetch(`/api/days/${selected.id}/workouts`); setWorkouts(await res.json());
 	}
 
-	async function editWorkout(w){
+	function editWorkout(w){
 		if(!w) return;
-		const esc = (s) => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-		const { value: result } = await Swal.fire({
-			title: 'Editar exercício',
-			html: `<input id="swal-name" class="swal2-input" placeholder="Nome do exercício" value="${esc(w.name)}"><input id="swal-sets" class="swal2-input" placeholder="Séries (ex: 3)" value="${w.plannedSets||''}"><input id="swal-reps" class="swal2-input" placeholder="Reps por série (ex: 8)" value="${w.plannedReps||''}"><input id="swal-youtube" class="swal2-input" placeholder="URL do YouTube (opcional)" value="${esc(w.youtube)}">`,
-			focusConfirm: false,
-			showCancelButton: true,
-			confirmButtonText: 'Salvar',
-			preConfirm: () => {
-				const name = document.getElementById('swal-name').value;
-				const plannedSets = document.getElementById('swal-sets').value;
-				const plannedReps = document.getElementById('swal-reps').value;
-				const youtube = document.getElementById('swal-youtube').value;
-				if (!name || !String(name).trim()) { Swal.showValidationMessage('Nome do exercício é obrigatório'); return false; }
-				return { name: String(name).trim(), plannedSets: plannedSets === '' ? 0 : Number(plannedSets), plannedReps: plannedReps === '' ? 0 : Number(plannedReps), youtube: youtube || null };
-			}
-		});
-		if (!result) return;
-		try{
-			await fetch(`/api/workouts/${w.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(result) });
-			const res = await fetch(`/api/days/${selected.id}/workouts`);
-			setWorkouts(await res.json());
-			Swal.fire({ icon: 'success', text: 'Exercício atualizado' });
-		}catch(e){ console.error(e); Swal.fire({ icon: 'error', text: 'Falha ao atualizar exercício' }); }
+		// open edit modal with current planned sets/reps; name is not editable here
+		setEditModalWorkout(w);
+		setEditModalSets(w.plannedSets || '');
+		setEditModalReps(w.plannedReps || '');
+		setEditModalError('');
+		setShowEditModal(true);
+	}
+
+	async function handleConfirmEditWorkout(){
+		if (!editModalWorkout) return;
+		if (editModalLoading) return;
+		setEditModalError(''); setEditModalLoading(true);
+		try {
+			const plannedSets = editModalSets === '' ? 0 : Number(editModalSets);
+			const plannedReps = editModalReps === '' ? 0 : Number(editModalReps);
+			const body = { plannedSets, plannedReps };
+			const resPatch = await fetch(`/api/workouts/${editModalWorkout.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+			if (!resPatch.ok) throw new Error('Falha ao atualizar exercício');
+			const r = await fetch(`/api/days/${selected.id}/workouts`);
+			setWorkouts(await r.json());
+			setShowEditModal(false);
+		} catch (e) {
+			console.error(e);
+			setEditModalError(e.message || 'Erro inesperado');
+		} finally { setEditModalLoading(false); }
 	}
 
 	async function persistOrder(newOrder) {
@@ -369,6 +414,32 @@ useEffect(()=>{
 		document.removeEventListener('keydown', onKey);
 	};
 },[offCanvasOpen]);
+
+// focus first modal control when modal opens
+useEffect(()=>{
+	if (showAddExerciseModal && modalFirstRef && modalFirstRef.current) {
+		try { modalFirstRef.current.focus(); } catch(e) { /* ignore */ }
+	}
+	},[showAddExerciseModal]);
+
+// lock body scroll and add ESC handler for image modal
+useEffect(()=>{
+	if (!showImageModal) return;
+	const prevOverflow = document.body.style.overflow;
+	document.body.style.overflow = 'hidden';
+	function onKey(e){ if (e.key === 'Escape') setShowImageModal(false); }
+	document.addEventListener('keydown', onKey);
+	// focus close button if available
+	try { if (imageModalCloseRef && imageModalCloseRef.current) imageModalCloseRef.current.focus(); } catch(e) {}
+	return ()=>{ document.body.style.overflow = prevOverflow; document.removeEventListener('keydown', onKey); };
+},[showImageModal]);
+
+// focus edit modal first control when opens
+useEffect(()=>{
+    if (showEditModal && editModalFirstRef && editModalFirstRef.current) {
+        try { editModalFirstRef.current.focus(); } catch(e) { /* ignore */ }
+    }
+},[showEditModal]);
 
 // (main menu removed)
 
@@ -580,7 +651,7 @@ useEffect(()=>{
 
 											{dayMenuOpen && (
 												<div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded shadow-sm z-50">
-													<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2" onClick={async ()=>{ setDayMenuOpen(false); await addWorkout(); }}>
+													<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2" onClick={()=>{ setDayMenuOpen(false); addWorkout(); }}>
 														<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
 															<path d="M12 5v14" />
 															<path d="M5 12h14" />
@@ -694,7 +765,18 @@ useEffect(()=>{
 												await persistOrder(copy.map(x=>x.id));
 											}}
 											onDragEnd={() => { setDraggingId(null); setDragOverIndex(null); }}
-											className={`card ${w.completed ? 'completed' : ''} ${draggingId===w.id ? 'opacity-60' : ''} ${dragOverIndex===idx ? 'ring-2 ring-dashed ring-slate-300' : ''}`}>
+											className={`card relative ${w.completed ? 'completed' : ''} ${draggingId===w.id ? 'opacity-60' : ''} ${dragOverIndex===idx ? 'ring-2 ring-dashed ring-slate-300' : ''}`}>
+											{(() => { const ex = exercisesList.find(e => e.id === w.exerciseId); return ex && ex.imagePath ? (
+												<button className="absolute bottom-2 right-2 p-2 bg-white rounded shadow-sm hover:scale-105 transition-transform" onClick={() => { setImageModalSrc(ex.imagePath); setImageModalTitle(ex.name); setShowImageModal(true); }} aria-label="Ver imagem do exercício" title="Ver imagem do exercício">
+													<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+														<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+														<path d="M15 8h.01" />
+														<path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z" />
+														<path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" />
+														<path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" />
+													</svg>
+												</button>
+											) : null })()}
 											<div className="flex items-start justify-between gap-4">
 												<div className="flex-1 min-w-0">
 													<div className="font-semibold text-sm break-words">{w.name}</div>
@@ -731,7 +813,7 @@ useEffect(()=>{
 																<path d="M22 12h-1" />
 															</svg>
 														</button>
-														<button className="btn bg-red-600 text-white p-2 hover:bg-red-700" onClick={() => deleteWorkout(w.id)} aria-label="Excluir exercício">
+														<button className="btn bg-red-600 text-white p-2 hover:bg-red-700" onClick={() => deleteWorkout(w.id)} aria-label="Excluir exercício" title="Excluir exercício">
 															<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
 																<path d="M0 0h24v24H0z" fill="none"/>
 																<path d="M20 6a1 1 0 0 1 .117 1.993l-.117 .007h-.081l-.919 11a3 3 0 0 1 -2.824 2.995l-.176 .005h-8c-1.598 0 -2.904 -1.249 -2.992 -2.75l-.005 -.167l-.923 -11.083h-.08a1 1 0 0 1 -.117 -1.993l.117 -.007h16z" />
@@ -773,6 +855,88 @@ useEffect(()=>{
 					)}
 				</section>
 			</main>
+
+				{/* Custom Add Exercise Modal (replaces SweetAlert2 for creation) */}
+				{showAddExerciseModal && (
+					<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
+						<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowAddExerciseModal(false); }} aria-hidden />
+						<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4" style={{ zIndex: 10000 }}>
+							<h3 className="text-lg font-semibold mb-3">Novo exercício</h3>
+							<div className="space-y-3">
+								<label className="block text-sm">Exercício</label>
+								<select ref={modalFirstRef} className="w-full border rounded px-2 py-2" value={modalExerciseId} onChange={(e)=>{ setModalExerciseId(e.target.value); }}>
+									{exercisesList && exercisesList.length ? exercisesList.map(ex => (
+										<option key={ex.id} value={ex.id}>{ex.name}{ex.targetMuscle ? ' — '+ex.targetMuscle : ''}</option>
+									)) : null}
+								</select>
+								{(!exercisesList || exercisesList.length === 0) && (
+									<div className="text-sm text-slate-600 mt-2">Nenhum exercício disponível. Cadastre exercícios no catálogo primeiro.</div>
+								)}
+								<label className="block text-sm">Séries</label>
+								<input className="w-full border rounded px-2 py-2" value={modalSets} onChange={(e)=>setModalSets(e.target.value)} placeholder="Ex: 3" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmAddWorkout(); }} />
+								<label className="block text-sm">Reps por série</label>
+								<input className="w-full border rounded px-2 py-2" value={modalReps} onChange={(e)=>setModalReps(e.target.value)} placeholder="Ex: 8" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmAddWorkout(); }} />
+								{modalError ? <div className="text-sm text-red-600 mb-2" role="alert">{modalError}</div> : null}
+								</div>
+								<div className="mt-4 flex justify-end gap-2">
+								<button className="px-3 py-2 rounded border" onClick={()=>setShowAddExerciseModal(false)}>Cancelar</button>
+								<button className="px-3 py-2 rounded bg-indigo-600 text-white" onClick={handleConfirmAddWorkout} disabled={!modalExerciseId || modalLoading}>{modalLoading ? '...' : 'Adicionar'}</button>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* Edit Exercise Modal (same style as create) */}
+				{showEditModal && editModalWorkout && (
+					<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
+						<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowEditModal(false); }} aria-hidden />
+						<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4" style={{ zIndex: 10000 }}>
+							<h3 className="text-lg font-semibold mb-3">Editar exercício</h3>
+							<div className="space-y-3">
+								<label className="block text-sm">Exercício</label>
+								<div className="w-full border rounded px-2 py-2 bg-slate-50 text-sm">{editModalWorkout.name}</div>
+								<label className="block text-sm">Séries</label>
+								<input ref={editModalFirstRef} className="w-full border rounded px-2 py-2" value={editModalSets} onChange={(e)=>setEditModalSets(e.target.value)} placeholder="Ex: 3" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmEditWorkout(); }} />
+								<label className="block text-sm">Reps por série</label>
+								<input className="w-full border rounded px-2 py-2" value={editModalReps} onChange={(e)=>setEditModalReps(e.target.value)} placeholder="Ex: 8" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmEditWorkout(); }} />
+								{editModalError ? <div className="text-sm text-red-600 mt-2" role="alert">{editModalError}</div> : null}
+							</div>
+							<div className="mt-4 flex justify-end gap-2">
+								<button className="px-3 py-2 rounded border" onClick={()=>setShowEditModal(false)}>Cancelar</button>
+								<button className="px-3 py-2 rounded bg-indigo-600 text-white" onClick={handleConfirmEditWorkout} disabled={editModalLoading}>{editModalLoading ? '...' : 'Salvar'}</button>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* Image Preview Modal */}
+				{showImageModal && (
+					<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }} role="dialog" aria-modal="true" aria-label={imageModalTitle || 'Visualizador de imagem'}>
+						<div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={(e)=>{ if (e.target === e.currentTarget) setShowImageModal(false); }} aria-hidden />
+						<div className="relative bg-white rounded-lg shadow-2xl max-w-3xl w-full mx-4 p-4" style={{ zIndex: 10000 }}>
+							<button ref={imageModalCloseRef} className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowImageModal(false)} aria-label="Fechar visualizador">
+								<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+									<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+									<path d="M18 6L6 18" />
+									<path d="M6 6l12 12" />
+								</svg>
+							</button>
+							<div className="flex flex-col md:flex-row gap-4 items-center">
+								<div className="flex-1 flex items-center justify-center max-h-[70vh] overflow-hidden">
+									<img src={imageModalSrc} alt={imageModalTitle} className="max-h-[70vh] w-auto max-w-full object-contain rounded" />
+								</div>
+								<div className="md:w-72">
+									<h4 className="text-lg font-semibold">{imageModalTitle}</h4>
+									<div className="text-sm text-slate-600 mt-2">Visualização do exercício. Use os botões para abrir em nova aba ou baixar a imagem.</div>
+									<div className="mt-4 flex gap-2">
+										<a className="px-3 py-2 rounded border text-sm" href={imageModalSrc} target="_blank" rel="noreferrer">Abrir em nova aba</a>
+										<a className="px-3 py-2 rounded bg-indigo-600 text-white text-sm" href={imageModalSrc} download>Baixar</a>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				)}
 		</div>
 	)
 }
