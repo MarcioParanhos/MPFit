@@ -36,8 +36,20 @@ function DayItem({ d, active, onClick }) {
 	const completedClass = d && d.completed ? 'bg-emerald-50 ring-2 ring-emerald-200' : '';
 	const title = d ? `${d.name}${d.completed ? ' (concluído)' : ''}` : '';
 	return (
-		<div onClick={onClick} className={`day-item ${active ? 'active' : ''} ${completedClass} p-1 rounded`} aria-label={title} title={title}>
+		<div onClick={onClick} className={`day-item ${active ? 'active' : ''} ${completedClass} p-1 rounded`} aria-label={title} title={title} style={{ position: 'relative' }}>
 			<DayIcon label={d.name} completed={!!d.completed} />
+			{d && d.shareCode ? (
+					<span className="absolute top-0 right-0 -translate-y-1/3 translate-x-1/3 w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px] shadow-sm" aria-hidden title="Este dia está sendo compartilhado">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3" style={{ transform: 'scale(0.78)' }} aria-hidden>
+							<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+							<path d="M6 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+							<path d="M18 6m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+							<path d="M18 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+							<path d="M8.7 10.7l6.6 -3.4" />
+							<path d="M8.7 13.3l6.6 3.4" />
+						</svg>
+					</span>
+			) : null}
 		</div>
 	)
 }
@@ -113,6 +125,12 @@ export default function AppPage(){
 	const [deleteModalLoading, setDeleteModalLoading] = useState(false);
 	const [deleteModalError, setDeleteModalError] = useState('');
 	const deleteModalFirstRef = useRef(null);
+	// Share day modal state
+	const [showShareModal, setShowShareModal] = useState(false);
+	const [shareModalLoading, setShareModalLoading] = useState(false);
+	const [shareModalError, setShareModalError] = useState('');
+	const [shareCode, setShareCode] = useState('');
+	const shareModalFirstRef = useRef(null);
 	const [timerSeconds, setTimerSeconds] = useState(null);
 	const timerRef = useRef(null);
 	const [draggingId, setDraggingId] = useState(null);
@@ -178,11 +196,15 @@ useEffect(()=>{
 			if (!Array.isArray(data)) {
 				console.warn('loadDays: unexpected response', data);
 				setDays([]);
-				return;
+				return [];
 			}
 			setDays(data);
-		}catch(e){console.error('loadDays error', e); setDays([]); }
-		finally{ setLoadingDays(false); }
+			return data;
+		}catch(e){
+			console.error('loadDays error', e);
+			setDays([]);
+			return [];
+		}finally{ setLoadingDays(false); }
 	}
 
 	async function selectDay(d){
@@ -449,7 +471,7 @@ async function handleConfirmLogout(){
 		// update days list and selected day
 		await loadDays();
 		setSelected(day);
-		const r = await fetch(`/api/days/${selected.id}/workouts`); setWorkouts(await r.json());
+		const r = await fetch(`/api/days/${day.id}/workouts`); setWorkouts(await r.json());
 		// initialize timer
 		if (day && day.startedAt) {
 			const s = Math.max(0, Math.round((Date.now() - new Date(day.startedAt).getTime())/1000));
@@ -477,7 +499,7 @@ async function handleConfirmLogout(){
 		const day = body;
 		await loadDays();
 		setSelected(day);
-		const r = await fetch(`/api/days/${selected.id}/workouts`); setWorkouts(await r.json());
+		const r = await fetch(`/api/days/${day.id}/workouts`); setWorkouts(await r.json());
 		// set final duration and clear timer
 		if (day && (day.durationSeconds || day.durationSeconds === 0)) {
 			setTimerSeconds(day.durationSeconds);
@@ -788,6 +810,79 @@ useEffect(()=>{
 							</div>
 						)}
 
+						{/* Share Day Modal (same pattern as other modals) */}
+						{showShareModal && (
+							<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }} role="dialog" aria-modal="true" aria-label="Compartilhar dia">
+								<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowShareModal(false); }} aria-hidden />
+								<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop mx-4" style={{ zIndex: 10000, position: 'relative' }}>
+									<button aria-label="Fechar" title="Fechar" className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowShareModal(false)}>
+										<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+											<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+											<path d="M18 6l-12 12" />
+											<path d="M6 6l12 12" />
+										</svg>
+									</button>
+									<div className="mb-3">
+										<h3 className="text-lg font-semibold">Compartilhar dia</h3>
+										<div className="text-sm text-slate-500">Gere um código para compartilhar este dia com outras pessoas. O código será copiado automaticamente para a área de transferência.</div>
+									</div>
+									<div className="space-y-3">
+										{shareModalError ? <div className="text-sm text-red-600" role="alert">{shareModalError}</div> : null}
+										{shareCode ? (
+											<div>
+												<label className="block text-sm font-medium">Código de compartilhamento</label>
+												<div className="mt-1 flex items-center gap-2">
+													<input readOnly className="w-full border border-slate-200 bg-slate-50 rounded-md px-3 py-2" value={shareCode} />
+													<button className="px-3 py-2 rounded" onClick={async ()=>{ try{ await navigator.clipboard.writeText(shareCode); }catch(e){ console.error(e); } }} style={{ background: '#d4f522', color: '#072000' }}>Copiar</button>
+												</div>
+												<div className="text-xs text-slate-500 mt-2">Cole este código na opção de importação/compartilhamento.</div>
+											</div>
+										) : (
+											<div className="text-sm text-slate-600">Clique em &quot;Gerar e copiar&quot; para criar um código de compartilhamento.</div>
+										)}
+									</div>
+										<div className="mt-4 flex justify-end gap-2">
+											{!shareCode ? (
+												<button className="px-3 py-2 rounded" style={{ background: '#d4f522', color: '#072000' }} onClick={async ()=>{
+													if (!selected) { setShareModalError('Nenhum dia selecionado'); return; }
+													setShareModalLoading(true); setShareModalError('');
+													try{
+														const res = await fetch(`/api/days/${selected.id}/share`, { method: 'POST' });
+														if (!res.ok) { throw new Error('Falha ao gerar código'); }
+														const body = await res.json();
+														setShareCode(body.shareCode || '');
+														try{ await navigator.clipboard.writeText(body.shareCode); }catch(e){ /* ignore */ }
+														const updatedDays = await loadDays();
+														const updatedSelected = updatedDays && updatedDays.find(dd => dd.id === selected.id);
+														if (updatedSelected) setSelected(updatedSelected);
+													}catch(e){ console.error(e); setShareModalError(e.message || 'Erro ao gerar código'); }
+													finally{ setShareModalLoading(false); }
+												}}>Gerar e copiar</button>
+											) : (
+												<>
+													<button className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-semibold shadow-sm hover:shadow-md transition bg-red-600 text-white" disabled={shareModalLoading} onClick={async ()=>{
+														if (!selected) { setShareModalError('Nenhum dia selecionado'); return; }
+														setShareModalLoading(true); setShareModalError('');
+														try{
+															const res = await fetch(`/api/days/${selected.id}/share`, { method: 'DELETE' });
+															if (!res.ok) { setShareModalError('Falha ao cancelar compartilhamento'); return; }
+															const updatedDays = await loadDays();
+															const updatedSelected = updatedDays && updatedDays.find(dd => dd.id === selected.id);
+															setSelected(updatedSelected || null);
+															setShareCode('');
+															setShowShareModal(false);
+															try { Swal.fire({ icon: 'success', text: 'Compartilhamento cancelado' }); } catch(e) { /* ignore */ }
+														}catch(e){ console.error(e); setShareModalError('Erro ao cancelar'); }
+														finally{ setShareModalLoading(false); }
+													}}>Cancelar compartilhamento</button>
+													<button className="px-3 py-2 rounded" style={{ background: '#d4f522', color: '#072000' }} onClick={()=>setShowShareModal(false)}>Fechar</button>
+												</>
+											)}
+										</div>
+								</div>
+							</div>
+						)}
+
 						{/* Delete confirmation modal (replaces Swal confirm) */}
 						{showDeleteModal && (
 							<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }} role="dialog" aria-modal="true" aria-label="Excluir exercício">
@@ -828,7 +923,10 @@ useEffect(()=>{
 						<div>
 							<div className="flex items-center justify-between mb-3">
 								<div>
-									<h2 className="text-xl font-semibold">{selected.name}</h2>
+									<div className="flex items-center gap-3 min-w-0">
+										<h2 className="text-xl font-semibold truncate min-w-0">{selected.name}</h2>
+										{/* shared pill moved to footer to avoid header wrapping */}
+									</div>
 									{selected.subtitle && <div className="text-sm text-slate-500">{selected.subtitle}</div>}
 									{selected.completed && (
 										<div className="mt-1 inline-flex items-center gap-2 text-sm text-emerald-700">
@@ -870,15 +968,10 @@ useEffect(()=>{
 													</button>
 
 													<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2" onClick={async ()=>{
-														setDayMenuOpen(false);
-														if (!selected) return;
-														try{
-															const res = await fetch(`/api/days/${selected.id}/share`, { method: 'POST' });
-															if (!res.ok) return Swal.fire({ icon: 'error', text: 'Falha ao gerar código de compartilhamento' });
-															const body = await res.json();
-															await navigator.clipboard.writeText(body.shareCode);
-															Swal.fire({ icon: 'success', text: 'Código copiado para área de transferência', title: body.shareCode });
-														}catch(e){ console.error(e); Swal.fire({ icon: 'error', text: 'Erro ao compartilhar' }); }
+															setDayMenuOpen(false);
+															setShareModalError(''); setShareModalLoading(false);
+															setShareCode(selected && selected.shareCode ? selected.shareCode : '');
+															setShowShareModal(true);
 													}}>
 														<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-600" aria-hidden>
 															<path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -907,23 +1000,7 @@ useEffect(()=>{
 														<span>Excluir dia</span>
 													</button>
 
-													{selected && selected.shareCode && (
-														<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2 text-slate-700" onClick={async ()=>{
-															setDayMenuOpen(false);
-															try{
-																const res = await fetch(`/api/days/${selected.id}/share`, { method: 'DELETE' });
-																if (!res.ok) return Swal.fire({ icon: 'error', text: 'Falha ao revogar código' });
-																await loadDays();
-																Swal.fire({ icon: 'success', text: 'Compartilhamento revogado' });
-															}catch(e){ console.error(e); Swal.fire({ icon: 'error', text: 'Erro ao revogar' }); }
-														}}>
-															<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-																<path d="M3 12h18" />
-																<path d="M12 5v14" />
-															</svg>
-															<span>Revogar compartilhamento</span>
-														</button>
-													)}
+													{/* Revogar compartilhamento movido para o modal; botão removido daqui */}
 												</div>
 											)}
 										</div>
@@ -996,6 +1073,8 @@ useEffect(()=>{
 
 												<div className="flex flex-col items-end gap-2">
 													<div className="text-sm text-slate-500">Peso atual: <span className="font-semibold">{w.currentWeight ? w.currentWeight + ' kg' : '—'}</span></div>
+
+                
 													<div className="flex items-center gap-2">
 														<button className="btn p-2 text-indigo-600" onClick={() => editWorkout(w)} aria-label="Editar exercício" title="Editar exercício">
 															<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 icon icon-tabler icons-tabler-outline icon-tabler-pencil-cog" aria-hidden>
