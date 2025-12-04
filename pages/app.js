@@ -70,6 +70,15 @@ export default function AppPage(){
 	const [modalError, setModalError] = useState('');
 	const [modalLoading, setModalLoading] = useState(false);
 	const modalFirstRef = useRef(null);
+	// Add Day modal state (use same layout as exercise modals)
+	const [showAddDayModal, setShowAddDayModal] = useState(false);
+	const [dayName, setDayName] = useState('');
+	const [daySubtitle, setDaySubtitle] = useState('');
+	const [dayTemplate, setDayTemplate] = useState('');
+	const [dayError, setDayError] = useState('');
+	const [dayLoading, setDayLoading] = useState(false);
+	const dayFirstRef = useRef(null);
+	// removed custom day name (only standard weekdays allowed)
 
 	// Image preview modal state
 	const [showImageModal, setShowImageModal] = useState(false);
@@ -85,6 +94,19 @@ export default function AppPage(){
 	const [editModalLoading, setEditModalLoading] = useState(false);
 	const [editModalError, setEditModalError] = useState('');
 	const editModalFirstRef = useRef(null);
+	// Current weight modal state (same style as other modals)
+	const [showWeightModal, setShowWeightModal] = useState(false);
+	const [weightModalWorkoutId, setWeightModalWorkoutId] = useState(null);
+	const [weightModalValue, setWeightModalValue] = useState('');
+	const [weightModalLoading, setWeightModalLoading] = useState(false);
+	const [weightModalError, setWeightModalError] = useState('');
+	const weightModalFirstRef = useRef(null);
+	// Delete workout modal state
+	const [showDeleteModal, setShowDeleteModal] = useState(false);
+	const [deleteModalWorkoutId, setDeleteModalWorkoutId] = useState(null);
+	const [deleteModalLoading, setDeleteModalLoading] = useState(false);
+	const [deleteModalError, setDeleteModalError] = useState('');
+	const deleteModalFirstRef = useRef(null);
 	const [timerSeconds, setTimerSeconds] = useState(null);
 	const timerRef = useRef(null);
 	const [draggingId, setDraggingId] = useState(null);
@@ -174,42 +196,40 @@ export default function AppPage(){
 	},[selected && selected.startedAt]);
 
 
-	async function addDay(){
-	 		const { value: form } = await Swal.fire({
-	 			title: 'Novo dia',
-	 			html: `
-	 				<div style="display:flex;flex-direction:column;gap:8px">
-	 					<input id="swal-name" class="swal2-input" placeholder="Nome (ex: Segunda, Pernas)">
-	 					<input id="swal-subtitle" class="swal2-input" placeholder="Legenda (obrigatória)">
-	 					<input id="swal-template" class="swal2-input" placeholder="Template ID (opcional)">
-	 				</div>
-	 			`,
-	 			focusConfirm: false,
-	 			showCancelButton: true,
-	 			confirmButtonText: 'Adicionar',
-	 			customClass: { popup: 'compact-swal' },
-	 			preConfirm: () => {
-	 				const name = document.getElementById('swal-name').value;
-	 				const subtitle = document.getElementById('swal-subtitle').value;
-	 				const template = document.getElementById('swal-template').value;
-	 				if (template && String(template).trim()) {
-	 					// when template provided, only template is necessary
-	 					return { templateCode: String(template).trim() };
-	 				}
-	 				if (!name || !String(name).trim()) { Swal.showValidationMessage('Nome do dia é obrigatório'); return false; }
-	 				if (!subtitle || !String(subtitle).trim()) { Swal.showValidationMessage('Legenda é obrigatória'); return false; }
-	 				return { name: String(name).trim(), subtitle: String(subtitle).trim() };
-	 			}
-	 		});
-		if (!form) return;
-		// if templateCode provided, send as templateCode; otherwise send name/subtitle
-		if (form.templateCode) {
-			await fetch('/api/days', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ templateCode: form.templateCode }) });
-		} else {
-			await fetch('/api/days', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+		function addDay(){
+			// open custom modal (same layout as exercise modals)
+			const weekDays = ['Segunda-Feira','Terça-Feira','Quarta-Feira','Quinta-Feira','Sexta-Feira','Sábado','Domingo'];
+			const used = (days || []).map(d => d && d.name).filter(Boolean);
+			const available = weekDays.filter(w => !used.includes(w));
+			setDayName(available.length ? available[0] : '');
+			// customDayName removed
+			setDaySubtitle('');
+			setDayTemplate('');
+			setDayError('');
+			setDayLoading(false);
+			setShowAddDayModal(true);
 		}
-		await loadDays();
-	}
+
+		async function handleConfirmAddDay(){
+			if (dayLoading) return;
+			setDayError(''); setDayLoading(true);
+			try {
+				if (dayTemplate && String(dayTemplate).trim()) {
+					await fetch('/api/days', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ templateCode: String(dayTemplate).trim() }) });
+				} else {
+					if (!dayName || !String(dayName).trim()) { setDayError('Nome do dia é obrigatório'); setDayLoading(false); return; }
+					const nameToSend = String(dayName).trim();
+					if (usedDayNames.includes(nameToSend)) { setDayError('Este dia já existe'); setDayLoading(false); return; }
+					if (!daySubtitle || !String(daySubtitle).trim()) { setDayError('Legenda é obrigatória'); setDayLoading(false); return; }
+					await fetch('/api/days', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nameToSend, subtitle: String(daySubtitle).trim() }) });
+				}
+				await loadDays();
+				setShowAddDayModal(false);
+			} catch (e) {
+				console.error(e);
+				setDayError(e.message || 'Erro inesperado');
+			} finally { setDayLoading(false); }
+		}
 
 	function addWorkout(){
 		if(!selected) return Swal.fire({ icon: 'warning', text: 'Selecione um dia' });
@@ -260,33 +280,60 @@ export default function AppPage(){
 		}
 	}
 
-	async function deleteWorkout(workoutId){
-		const result = await Swal.fire({
-			title: 'Excluir exercício?',
-			text: 'Isto removerá o exercício e todos os registros relacionados.',
-			icon: 'warning',
-			showCancelButton: true,
-			confirmButtonText: 'Sim, excluir',
-			cancelButtonText: 'Cancelar'
-		});
-		if (!result.isConfirmed) return;
-		await fetch(`/api/workouts/${workoutId}`, { method: 'DELETE' });
-		const res = await fetch(`/api/days/${selected.id}/workouts`); setWorkouts(await res.json());
-		Swal.fire({ icon: 'success', text: 'Exercício excluído' });
+	function deleteWorkout(workoutId){
+		// open custom confirm modal
+		setDeleteModalWorkoutId(workoutId);
+		setDeleteModalError('');
+		setDeleteModalLoading(false);
+		setShowDeleteModal(true);
+	}
+
+	async function handleConfirmDeleteWorkout(){
+		if (deleteModalLoading) return;
+		setDeleteModalError(''); setDeleteModalLoading(true);
+		try {
+			if (!deleteModalWorkoutId) throw new Error('Exercício inválido');
+			const resDel = await fetch(`/api/workouts/${deleteModalWorkoutId}`, { method: 'DELETE' });
+			if (!resDel.ok) throw new Error('Falha ao excluir exercício');
+			const res = await fetch(`/api/days/${selected.id}/workouts`);
+			setWorkouts(await res.json());
+			setShowDeleteModal(false);
+			Swal.fire({ icon: 'success', text: 'Exercício excluído' });
+		} catch (e) {
+			console.error(e);
+			setDeleteModalError(e.message || 'Erro inesperado');
+		} finally {
+			setDeleteModalLoading(false);
+		}
 	}
 
 	async function setCurrentWeight(workoutId){
-		const { value: wt } = await Swal.fire({
-			title: 'Peso atual (kg)',
-			input: 'text',
-			inputPlaceholder: 'Ex: 35 (deixe vazio para limpar)',
-			showCancelButton: true,
-			confirmButtonText: 'Salvar'
-		});
-		if (wt === undefined) return; // cancelled
-		const body = wt === '' ? { weight: null } : { weight: Number(wt) };
-		await fetch(`/api/workouts/${workoutId}/current`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
-		const res = await fetch(`/api/days/${selected.id}/workouts`); setWorkouts(await res.json());
+		// open the custom modal and prefill with current weight if available
+		const w = workouts.find(x => x.id === workoutId);
+		setWeightModalWorkoutId(workoutId);
+		setWeightModalValue(w && w.currentWeight ? String(w.currentWeight) : '');
+		setWeightModalError('');
+		setWeightModalLoading(false);
+		setShowWeightModal(true);
+	}
+
+	async function handleConfirmSetWeight(){
+		if (weightModalLoading) return;
+		setWeightModalError(''); setWeightModalLoading(true);
+		try {
+			const wt = weightModalValue;
+			const body = wt === '' ? { weight: null } : { weight: Number(wt) };
+			const res = await fetch(`/api/workouts/${weightModalWorkoutId}/current`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+			if (!res.ok) throw new Error('Falha ao definir peso');
+			const r = await fetch(`/api/days/${selected.id}/workouts`);
+			setWorkouts(await r.json());
+			setShowWeightModal(false);
+		} catch (e) {
+			console.error(e);
+			setWeightModalError(e.message || 'Erro inesperado');
+		} finally {
+			setWeightModalLoading(false);
+		}
 	}
 
 	function editWorkout(w){
@@ -422,6 +469,18 @@ useEffect(()=>{
 	}
 	},[showAddExerciseModal]);
 
+	// focus first control when Add Day modal opens
+useEffect(()=>{
+    if (showAddDayModal && dayFirstRef && dayFirstRef.current) {
+        try { dayFirstRef.current.focus(); } catch(e) { /* ignore */ }
+    }
+},[showAddDayModal]);
+
+	// Week days and available options (exclude already created days)
+	const WEEK_DAYS = ['Segunda-Feira','Terça-Feira','Quarta-Feira','Quinta-Feira','Sexta-Feira','Sábado','Domingo'];
+	const usedDayNames = (days || []).map(d => d && d.name).filter(Boolean);
+	const availableWeekDays = WEEK_DAYS.filter(w => !usedDayNames.includes(w));
+
 // lock body scroll and add ESC handler for image modal
 useEffect(()=>{
 	if (!showImageModal) return;
@@ -440,6 +499,20 @@ useEffect(()=>{
         try { editModalFirstRef.current.focus(); } catch(e) { /* ignore */ }
     }
 },[showEditModal]);
+
+// focus weight modal first control when opens
+useEffect(()=>{
+	if (showWeightModal && weightModalFirstRef && weightModalFirstRef.current) {
+		try { weightModalFirstRef.current.focus(); } catch(e) { /* ignore */ }
+	}
+},[showWeightModal]);
+
+// focus delete modal when opens
+useEffect(()=>{
+	if (showDeleteModal && deleteModalFirstRef && deleteModalFirstRef.current) {
+		try { deleteModalFirstRef.current.focus(); } catch(e) { /* ignore */ }
+	}
+},[showDeleteModal]);
 
 // (main menu removed)
 
@@ -602,6 +675,68 @@ useEffect(()=>{
 							<div className="card w-full text-center">
 								<p className="mb-3">Você ainda não adicionou dias.</p>
 								<button className="btn" onClick={addDay}>Adicionar primeiro dia</button>
+							</div>
+						)}
+
+						{/* Current Weight Modal (same style as other modals) */}
+						{showWeightModal && (
+							<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }} role="dialog" aria-modal="true" aria-label="Definir peso atual">
+								<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowWeightModal(false); }} aria-hidden />
+								<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop mx-4" style={{ zIndex: 10000, position: 'relative' }}>
+									<button aria-label="Fechar" title="Fechar" className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowWeightModal(false)}>
+										<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+											<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+											<path d="M18 6l-12 12" />
+											<path d="M6 6l12 12" />
+										</svg>
+									</button>
+									<div className="mb-3">
+										<h3 className="text-lg font-semibold">Peso atual (kg)</h3>
+										<div className="text-sm text-slate-500">Insira o peso atual em kg (deixe vazio para limpar).</div>
+									</div>
+									<div className="space-y-3">
+										<label className="block text-sm font-medium">Peso</label>
+										<input ref={weightModalFirstRef} className="w-full border border-slate-200 bg-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={weightModalValue} onChange={(e)=>setWeightModalValue(e.target.value)} placeholder="Ex: 35 (deixe vazio para limpar)" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmSetWeight(); }} />
+										{weightModalError ? <div className="text-sm text-red-600 mt-2" role="alert">{weightModalError}</div> : null}
+									</div>
+									<div className="mt-4 flex justify-end">
+										<button aria-label="Salvar" title="Salvar" className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-semibold shadow-sm hover:shadow-md transition" onClick={handleConfirmSetWeight} disabled={weightModalLoading} style={{ backgroundColor: '#d4f523', color: '#072000' }}>{weightModalLoading ? '...' : (
+											<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+												<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+												<path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" />
+												<path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+												<path d="M14 4l0 4l-6 0l0 -4" />
+											</svg>
+										)}</button>
+									</div>
+								</div>
+							</div>
+						)}
+
+						{/* Delete confirmation modal (replaces Swal confirm) */}
+						{showDeleteModal && (
+							<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }} role="dialog" aria-modal="true" aria-label="Excluir exercício">
+								<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowDeleteModal(false); }} aria-hidden />
+								<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop mx-4" style={{ zIndex: 10000, position: 'relative' }}>
+									<button aria-label="Fechar" title="Fechar" className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowDeleteModal(false)}>
+										<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+											<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+											<path d="M18 6l-12 12" />
+											<path d="M6 6l12 12" />
+										</svg>
+									</button>
+									<div className="mb-3">
+										<h3 className="text-lg font-semibold">Excluir exercício?</h3>
+										<div className="text-sm text-slate-500">Isto removerá o exercício e todos os registros relacionados.</div>
+									</div>
+									<div className="space-y-3">
+										<div className="text-sm text-slate-700">{(() => { const w = workouts.find(x => x.id === deleteModalWorkoutId); return w ? <strong>{w.name}</strong> : null })()}</div>
+										{deleteModalError ? <div className="text-sm text-red-600 mt-2" role="alert">{deleteModalError}</div> : null}
+									</div>
+									<div className="mt-4 flex justify-end">
+										<button ref={deleteModalFirstRef} aria-label="Excluir" title="Excluir" className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-semibold shadow-sm hover:shadow-md transition bg-red-600 text-white" onClick={handleConfirmDeleteWorkout} disabled={deleteModalLoading}>{deleteModalLoading ? '...' : 'Sim, excluir'}</button>
+									</div>
+								</div>
 							</div>
 						)}
 						{days.map(d => <DayItem key={d.id} d={d} active={selected && selected.id===d.id} onClick={()=>selectDay(d)} />)}
@@ -923,6 +1058,53 @@ useEffect(()=>{
 						</div>
 					</div>
 				)}
+
+					{/* Add Day Modal (same layout as exercise modals) */}
+					{showAddDayModal && (
+						<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
+							<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowAddDayModal(false); }} aria-hidden />
+							<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop mx-4" style={{ zIndex: 10000, position: 'relative' }}>
+								<button aria-label="Fechar" title="Fechar" className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowAddDayModal(false)}>
+									<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+										<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+										<path d="M18 6l-12 12" />
+										<path d="M6 6l12 12" />
+									</svg>
+								</button>
+								<div className="mb-3">
+									<h3 className="text-lg font-semibold">Novo dia</h3>
+									<div className="text-sm text-slate-500">Crie um dia — informe nome e legenda ou informe um Template ID para usar um template.</div>
+								</div>
+								<div className="space-y-3">
+									<label className="block text-sm font-medium">Nome</label>
+									<select ref={dayFirstRef} className="w-full border border-slate-200 bg-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={dayName} onChange={(e)=>setDayName(e.target.value)} onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmAddDay(); }}>
+										{availableWeekDays && availableWeekDays.length ? availableWeekDays.map(d => (
+											<option key={d} value={d}>{d}</option>
+										)) : null}
+									</select>
+									{(!availableWeekDays || availableWeekDays.length === 0) && (
+										<div className="text-sm text-slate-600 mt-2">Todos os dias da semana já foram adicionados.</div>
+									)}
+									<label className="block text-sm font-medium">Legenda</label>
+									<input className="w-full border border-slate-200 bg-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={daySubtitle} onChange={(e)=>setDaySubtitle(e.target.value)} placeholder="Ex: Biceps / Costas" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmAddDay(); }} />
+						
+									<label className="block text-sm font-medium">Template ID (opcional)</label>
+									<input className="w-full border border-slate-200 bg-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={dayTemplate} onChange={(e)=>setDayTemplate(e.target.value)} placeholder="Ex: ABC123 (deixe vazio para informar nome/legenda)" onKeyDown={(e)=>{ if (e.key === 'Enter') handleConfirmAddDay(); }} />
+									{dayError ? <div className="text-sm text-red-600 mt-2" role="alert">{dayError}</div> : null}
+								</div>
+								<div className="mt-4 flex justify-end">
+									<button aria-label="Adicionar" title="Adicionar" className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-semibold shadow-sm hover:shadow-md transition" onClick={handleConfirmAddDay} disabled={dayLoading} style={{ backgroundColor: '#d4f523', color: '#072000' }}>{dayLoading ? '...' : (
+										<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+											<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+											<path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" />
+											<path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+											<path d="M14 4l0 4l-6 0l0 -4" />
+										</svg>
+									)}</button>
+								</div>
+							</div>
+						</div>
+					)}
 
 				{/* Edit Exercise Modal (same style as create) */}
 				{showEditModal && editModalWorkout && (
