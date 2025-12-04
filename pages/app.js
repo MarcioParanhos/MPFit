@@ -833,7 +833,13 @@ useEffect(()=>{
 												<label className="block text-sm font-medium">Código de compartilhamento</label>
 												<div className="mt-1 flex items-center gap-2">
 													<input readOnly className="w-full border border-slate-200 bg-slate-50 rounded-md px-3 py-2" value={shareCode} />
-													<button className="px-3 py-2 rounded" onClick={async ()=>{ try{ await navigator.clipboard.writeText(shareCode); }catch(e){ console.error(e); } }} style={{ background: '#d4f522', color: '#072000' }}>Copiar</button>
+													<button className="px-3 py-2 rounded" onClick={async ()=>{ try{ await navigator.clipboard.writeText(shareCode); }catch(e){ console.error(e); } }} style={{ background: '#d4f522', color: '#072000' }} aria-label="Copiar código">
+														<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+															<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+															<path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" />
+															<path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" />
+														</svg>
+													</button>
 												</div>
 												<div className="text-xs text-slate-500 mt-2">Cole este código na opção de importação/compartilhamento.</div>
 											</div>
