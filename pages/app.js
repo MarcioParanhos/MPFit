@@ -59,6 +59,7 @@ function AddDayTile({ onClick }){
 export default function AppPage(){
 	const router = useRouter();
 	const [days,setDays] = useState([]);
+	const [loadingDays, setLoadingDays] = useState(true);
 	const [user, setUser] = useState(null);
 	const [selected, setSelected] = useState(null);
 	const [workouts, setWorkouts] = useState([]);
@@ -170,17 +171,18 @@ useEffect(()=>{
 	},[]);
 
 	async function loadDays(){
+		setLoadingDays(true);
 		try{
 			const res = await fetch('/api/days');
 			const data = await res.json();
 			if (!Array.isArray(data)) {
 				console.warn('loadDays: unexpected response', data);
-				// if unauthorized or error, clear days to avoid runtime crashes
 				setDays([]);
 				return;
 			}
 			setDays(data);
 		}catch(e){console.error('loadDays error', e); setDays([]); }
+		finally{ setLoadingDays(false); }
 	}
 
 	async function selectDay(d){
@@ -735,12 +737,21 @@ useEffect(()=>{
 						</>
 					</div>
 					<div className="day-list">
-						{days.length===0 && (
-							<div className="card w-full text-center">
-								<p className="mb-3">Você ainda não adicionou dias.</p>
+						{loadingDays ? (
+							<div className="card w-full text-center p-6 flex flex-col items-center gap-3">
+								<svg className="animate-spin h-8 w-8 text-amber-500" viewBox="0 0 24 24">
+									<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+									<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+								</svg>
+								<div className="text-sm font-medium">Carregando seus dias...</div>
+								<div className="text-xs text-slate-500">Aguarde enquanto buscamos seus treinos e configurações.</div>
+							</div>
+						) : days.length===0 ? (
+							<div className="card w-full text-center p-6">
+								<div className="mb-3 text-sm text-slate-600">Não há dias criados ainda.</div>
 								<button className="btn" onClick={addDay}>Adicionar primeiro dia</button>
 							</div>
-						)}
+						) : null}
 
 						{/* Current Weight Modal (same style as other modals) */}
 						{showWeightModal && (
