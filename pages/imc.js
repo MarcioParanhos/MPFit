@@ -42,6 +42,20 @@ export default function ImcPage(){
   const [user, setUser] = useState(null);
   const [offCanvasOpen, setOffCanvasOpen] = useState(false);
   const offCanvasRef = useRef(null);
+  // offcanvas user dropdown state
+  const [offcanvasUserDropdownOpen, setOffcanvasUserDropdownOpen] = useState(false);
+  const offcanvasUserDropdownRef = useRef(null);
+  // logout modal state
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [logoutModalLoading, setLogoutModalLoading] = useState(false);
+  const [logoutModalError, setLogoutModalError] = useState('');
+  const logoutModalFirstRef = useRef(null);
+  // help modal for IMC info
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const helpModalFirstRef = useRef(null);
+  // IMC goal state (persisted in localStorage)
+  const [goalBmi, setGoalBmi] = useState('');
+  const [predictedDate, setPredictedDate] = useState(null);
   const [weight, setWeight] = useState(''); // kg
   const [height, setHeight] = useState(''); // cm
   const [bmi, setBmi] = useState(null);
@@ -49,6 +63,57 @@ export default function ImcPage(){
   const STORAGE_KEY = 'imc_records_v1';
 
   useEffect(()=>{ load(); },[]);
+
+  // load goal from localStorage
+  useEffect(()=>{
+    try{
+      const raw = localStorage.getItem('imc_goal_bmi');
+      if (raw) setGoalBmi(raw);
+    }catch(e){}
+  },[]);
+
+  // recompute prediction when records or goal change
+  useEffect(()=>{
+    if (!goalBmi) { setPredictedDate(null); return; }
+    const g = Number(String(goalBmi).replace(',','.'));
+    if (!Number.isFinite(g)) { setPredictedDate(null); return; }
+    const pd = computeTrendPrediction(records, g);
+    setPredictedDate(pd);
+  },[records, goalBmi]);
+
+  function saveGoal(){
+    try{ localStorage.setItem('imc_goal_bmi', String(goalBmi)); }catch(e){}
+    const g = Number(String(goalBmi).replace(',','.'));
+    const pd = computeTrendPrediction(records, g);
+    setPredictedDate(pd);
+  }
+
+  function clearGoal(){
+    try{ localStorage.removeItem('imc_goal_bmi'); }catch(e){}
+    setGoalBmi(''); setPredictedDate(null);
+  }
+
+  // compute simple linear regression on recent records to predict when BMI will reach goal
+  function computeTrendPrediction(recordsArr, goal){
+    if (!Array.isArray(recordsArr) || recordsArr.length < 2) return null;
+    // use last up to 10 chronological points (oldest -> newest)
+    const pts = recordsArr.slice().reverse().slice(-10).filter(r => r && Number.isFinite(r.bmi) && r.date).map(r=>({ t: new Date(r.date).getTime(), y: Number(r.bmi) }));
+    if (pts.length < 2) return null;
+    // linear regression y = m*t + b
+    const n = pts.length;
+    const sumT = pts.reduce((s,p)=>s+p.t,0);
+    const sumY = pts.reduce((s,p)=>s+p.y,0);
+    const sumTT = pts.reduce((s,p)=>s+p.t*p.t,0);
+    const sumTY = pts.reduce((s,p)=>s+p.t*p.y,0);
+    const denom = (n*sumTT - sumT*sumT);
+    if (!denom) return null;
+    const m = (n*sumTY - sumT*sumY)/denom;
+    const b = (sumY - m*sumT)/n;
+    if (!Number.isFinite(m) || Math.abs(m) < 1e-12) return null;
+    const tGoal = (goal - b)/m;
+    if (!Number.isFinite(tGoal)) return null;
+    return new Date(Math.round(tGoal));
+  }
 
   // fetch user for header avatar and logout
   useEffect(()=>{
@@ -134,6 +199,19 @@ export default function ImcPage(){
     })();
   }
 
+  async function handleConfirmLogout(){
+    try{
+      setLogoutModalError('');
+      setLogoutModalLoading(true);
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      setLogoutModalLoading(false);
+      setShowLogoutModal(false);
+      if (res.status === 401) return router.replace('/login');
+      if (!res.ok) return setLogoutModalError('Falha ao sair');
+      router.replace('/login');
+    }catch(e){ setLogoutModalLoading(false); setLogoutModalError('Erro ao sair'); }
+  }
+
   // close off-canvas on outside click or ESC
   useEffect(()=>{
     function onDoc(e){
@@ -150,6 +228,35 @@ export default function ImcPage(){
       document.removeEventListener('keydown', onKey);
     };
   },[offCanvasOpen]);
+
+  // close offcanvas user dropdown when clicking outside or pressing Escape
+  useEffect(()=>{
+    if (!offcanvasUserDropdownOpen) return;
+    function onDoc(e){ if (!offcanvasUserDropdownRef.current) return; if (!offcanvasUserDropdownRef.current.contains(e.target)) setOffcanvasUserDropdownOpen(false); }
+    function onKey(e){ if (e.key === 'Escape') setOffcanvasUserDropdownOpen(false); }
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('touchstart', onDoc);
+    document.addEventListener('keydown', onKey);
+    return ()=>{
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('touchstart', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  },[offcanvasUserDropdownOpen]);
+
+  // focus first element in logout modal when opened
+  useEffect(()=>{
+    if (!showLogoutModal) return;
+    const t = setTimeout(()=>{ try{ logoutModalFirstRef.current?.focus(); }catch(e){} }, 60);
+    return ()=>clearTimeout(t);
+  },[showLogoutModal]);
+
+  // focus first element in help modal when opened
+  useEffect(()=>{
+    if (!showHelpModal) return;
+    const t = setTimeout(()=>{ try{ helpModalFirstRef.current?.focus(); }catch(e){} }, 60);
+    return ()=>clearTimeout(t);
+  },[showHelpModal]);
 
   function exportCSV(){
     const header = ['id','date','weight','height','bmi'];
@@ -220,17 +327,28 @@ export default function ImcPage(){
                 {getInitials(user ? (user.name || user.email) : '')}
               </div>
               <div className="flex-1 flex items-center justify-between">
-                <div>
-                  <div className="font-semibold">{user ? (user.name ? user.name : user.email) : 'Usuário'}</div>
-                  <div className="text-xs text-slate-500">{user ? (user.email ? user.email : '') : ''}</div>
+                <div className="relative">
+                  <button type="button" onClick={()=>setOffcanvasUserDropdownOpen(v=>!v)} className="text-left" aria-haspopup="true" aria-expanded={offcanvasUserDropdownOpen}>
+                    <div className="font-semibold">{user ? (user.name ? user.name : user.email) : 'Usuário'}</div>
+                    <div className="text-xs text-slate-500">{user ? (user.email ? user.email : '') : ''}</div>
+                  </button>
+                  {offcanvasUserDropdownOpen && (
+                    <div ref={offcanvasUserDropdownRef} className="absolute left-0 mt-2 w-44 bg-white border rounded shadow z-50" role="menu">
+                      <button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50" role="menuitem" onClick={()=>{ setOffCanvasOpen(false); setOffcanvasUserDropdownOpen(false); router.push('/settings'); }}>
+                        Configurações
+                      </button>
+                      <button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 text-rose-600" role="menuitem" onClick={()=>{ setOffcanvasUserDropdownOpen(false); setShowLogoutModal(true); }}>
+                        Sair
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <button className="p-2 rounded hover:bg-slate-100" onClick={async ()=>{ setOffCanvasOpen(false); await fetch('/api/auth/logout', { method: 'POST' }); router.replace('/login'); }} aria-label="Sair">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+                  <button aria-label="Fechar" title="Fechar" className="p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setOffCanvasOpen(false)}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
                       <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                      <path d="M10 8v-2a2 2 0 0 1 2 -2h7a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-7a2 2 0 0 1 -2 -2v-2" />
-                      <path d="M15 12h-12l3 -3" />
-                      <path d="M6 15l-3 -3" />
+                      <path d="M18 6L6 18" />
+                      <path d="M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
@@ -258,9 +376,96 @@ export default function ImcPage(){
               </button>
             </nav>
           </aside>
+
+          {showLogoutModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div className="fixed inset-0 bg-black/40" onClick={()=>setShowLogoutModal(false)} aria-hidden />
+              <div className="bg-white rounded shadow-lg p-4 z-60 max-w-lg w-full mx-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-700">!
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold">Sair</div>
+                    <div className="text-sm text-slate-600 mt-1">Tem certeza que deseja sair da sua conta?</div>
+                  </div>
+                </div>
+                {logoutModalError ? <div className="text-sm text-rose-600 mt-3">{logoutModalError}</div> : null}
+                <div className="mt-4 flex gap-2 justify-end">
+                  <button ref={logoutModalFirstRef} className="px-3 py-2 rounded border" onClick={()=>setShowLogoutModal(false)} disabled={logoutModalLoading}>Cancelar</button>
+                  <button className="px-3 py-2 rounded" style={{ background: '#d4f522', color: '#072000' }} onClick={handleConfirmLogout} disabled={logoutModalLoading}>{logoutModalLoading ? 'Saindo...' : 'Sair'}</button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
+
+        {showHelpModal && (
+          <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
+            <div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowHelpModal(false); }} aria-hidden />
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop mx-4" style={{ zIndex: 10000, position: 'relative' }}>
+              <button aria-label="Fechar" title="Fechar" className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowHelpModal(false)}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M18 6L6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+              <div className="mb-3">
+                <h3 className="text-lg font-semibold">Sobre o cálculo do IMC</h3>
+                <div className="text-sm text-slate-500">Tabela com as faixas de IMC e a fórmula</div>
+              </div>
+              <div className="mt-2">
+                <div className="text-sm mb-2">Fórmula: <code>IMC = peso(kg) / (altura(m))²</code></div>
+                <div className="overflow-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="text-left pb-2">Categoria</th>
+                        <th className="text-left pb-2">Faixa de IMC</th>
+                        <th className="text-left pb-2">Interpretação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="pt-2">Abaixo do peso</td>
+                        <td className="pt-2">&lt; 18.5</td>
+                        <td className="pt-2">Pode indicar insuficiência alimentar; avaliar composição corporal.</td>
+                      </tr>
+                      <tr>
+                        <td className="pt-2">Normal</td>
+                        <td className="pt-2">18.5 – 24.9</td>
+                        <td className="pt-2">Faixa considerada saudável para a maioria das pessoas.</td>
+                      </tr>
+                      <tr>
+                        <td className="pt-2">Sobrepeso</td>
+                        <td className="pt-2">25.0 – 29.9</td>
+                        <td className="pt-2">Aumento do risco de problemas metabólicos; monitorar alterações.</td>
+                      </tr>
+                      <tr>
+                        <td className="pt-2">Obesidade</td>
+                        <td className="pt-2">≥ 30.0</td>
+                        <td className="pt-2">Maior risco para doenças crônicas; aconselha-se acompanhamento profissional.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="text-xs text-slate-500 mt-3">Observação: IMC é uma medida populacional e não substitui avaliação clínica individual, especialmente para atletas ou idosos.</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <section className="card p-4">
-          <h2 className="font-semibold text-lg mb-2">Calculadora de IMC</h2>
+          <div className="flex items-center gap-2 mb-2">
+            <h2 className="font-semibold text-lg">Calculadora de IMC</h2>
+            <button aria-label="Ajuda IMC" title="Ajuda" onClick={()=>setShowHelpModal(true)} className="text-slate-600 hover:bg-slate-100 p-1 rounded">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 1 1 5.82 1c0 1.5-2 2.25-2 3.5" />
+                <path d="M12 17h.01" />
+              </svg>
+            </button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label className="flex flex-col">
               <span className="text-sm text-slate-600">Peso (kg)</span>
@@ -295,6 +500,93 @@ export default function ImcPage(){
             <div className="mt-2 inline-flex items-baseline gap-3">
               <div className="text-3xl font-mono">{bmi ?? '—'}</div>
               <div className="text-sm">{bmi ? <CategoryBadge bmi={bmi} /> : ''}</div>
+            </div>
+          </div>
+          {/* Chart and goal panel */}
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold">Evolução do IMC</h3>
+              <div className="text-sm text-slate-500">Últimos registros</div>
+            </div>
+            <div className="w-full bg-white border rounded p-3">
+              {records && records.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="col-span-1 lg:col-span-2">
+                    <div className="w-full overflow-hidden">
+                      <svg viewBox="0 0 600 200" preserveAspectRatio="none" className="w-full h-40">
+                        {(() => {
+                          const pts = (records || []).slice().reverse().filter(r => r && Number.isFinite(r.bmi) && r.date);
+                          if (pts.length === 0) return null;
+                          const times = pts.map(p => new Date(p.date).getTime());
+                          const bmis = pts.map(p => Number(p.bmi));
+                          const minT = Math.min(...times);
+                          const maxT = Math.max(...times);
+                          const minB = Math.min(...bmis) - 1;
+                          const maxB = Math.max(...bmis) + 1;
+                          const mapX = (t) => 20 + 560 * ((t - minT) / Math.max(1, (maxT - minT)));
+                          const mapY = (y) => 180 - 160 * ((y - minB) / Math.max(1e-6, (maxB - minB)));
+                          const points = pts.map(p => `${mapX(new Date(p.date).getTime())},${mapY(Number(p.bmi))}`).join(' ');
+                          // goal line
+                          const goalLineY = (goalBmi && Number.isFinite(Number(String(goalBmi).replace(',','.'))) ) ? mapY(Number(String(goalBmi).replace(',','.'))) : null;
+                          return (
+                            <g>
+                              {/* grid lines */}
+                              <rect x="0" y="0" width="600" height="200" fill="transparent" />
+                              {/* polyline */}
+                              <polyline fill="none" stroke="#0f172a" strokeWidth="2" points={points} strokeOpacity="0.9" />
+                              {/* points */}
+                              {pts.map((p,i)=> (
+                                <circle key={i} cx={mapX(new Date(p.date).getTime())} cy={mapY(Number(p.bmi))} r="3" fill="#d4f522" stroke="#072000" strokeWidth="0.5" />
+                              ))}
+                              {/* goal horizontal line */}
+                              {goalLineY !== null ? <line x1="20" x2="580" y1={goalLineY} y2={goalLineY} stroke="#ef4444" strokeDasharray="4 4" strokeWidth="1" /> : null}
+                              {/* predicted vertical line */}
+                              {predictedDate ? (()=>{ const tx = mapX(predictedDate.getTime()); return <line x1={tx} x2={tx} y1="10" y2="190" stroke="#f97316" strokeDasharray="3 3" strokeWidth="1" /> })() : null}
+                            </g>
+                          );
+                        })()}
+                      </svg>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-2">Pontos representam registros salvos. Linha vermelha: meta (se definida). Linha laranja: previsão de quando a meta será atingida (se disponível).</div>
+                  </div>
+                  <div className="col-span-1 flex flex-col gap-3">
+                    <div>
+                      <label className="text-sm text-slate-600">Meta de IMC</label>
+                      <div className="mt-1 flex gap-2">
+                        <input inputMode="decimal" value={goalBmi} onChange={(e)=>setGoalBmi(e.target.value)} placeholder="Ex: 22.5" className="p-2 border rounded w-full" />
+                        <button className="px-3 py-2 rounded" style={{ background: '#d4f522', color: '#072000' }} onClick={saveGoal}>Salvar</button>
+                      </div>
+                      <div className="mt-2 flex gap-2">
+                        <button className="text-sm text-slate-600 underline" onClick={clearGoal}>Limpar meta</button>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-slate-600">Progresso</div>
+                      {(() => {
+                        const cur = (records && records[0] && Number.isFinite(records[0].bmi)) ? Number(records[0].bmi) : (Number.isFinite(bmi) ? bmi : null);
+                        const start = (records && records.length ? (Number.isFinite(records[records.length-1].bmi) ? Number(records[records.length-1].bmi) : cur) : cur);
+                        const g = Number(String(goalBmi).replace(',','.'));
+                        if (!cur || !start || !g || !Number.isFinite(g)) return <div className="text-sm text-slate-500">Defina uma meta para ver progresso.</div>;
+                        let pct = 0;
+                        if (g < start) { pct = ((start - cur) / (start - g)) * 100; }
+                        else { pct = ((cur - start) / (g - start)) * 100; }
+                        pct = Math.max(0, Math.min(100, Math.round(pct)));
+                        return (
+                          <div>
+                            <div className="w-full bg-slate-100 rounded h-3 overflow-hidden mt-2">
+                              <div style={{ width: `${pct}%` }} className="h-3 bg-emerald-500" />
+                            </div>
+                            <div className="text-sm text-slate-600 mt-2">{pct}% concluído • Atual: {cur} • Meta: {g}</div>
+                            {predictedDate ? <div className="text-sm text-slate-600 mt-1">Previsão: {predictedDate.toLocaleDateString()}</div> : null}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-slate-500">Nenhum registro para desenhar o gráfico. Salve registros para visualizar a evolução.</div>
+              )}
             </div>
           </div>
         </section>
