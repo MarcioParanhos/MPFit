@@ -76,6 +76,7 @@ export default function AppPage(){
 	const [selected, setSelected] = useState(null);
 	const [workouts, setWorkouts] = useState([]);
 	const [exercisesList, setExercisesList] = useState([]);
+	const [imcRecords, setImcRecords] = useState([]);
 	const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
 	const [exerciseSearch, setExerciseSearch] = useState('');
 	const exerciseDropdownRef = useRef(null);
@@ -188,6 +189,8 @@ useEffect(()=>{
 				await loadDays();
 				// load exercises catalog for selects and card previews
 				try { const r = await fetch('/api/exercises'); if (r.ok) setExercisesList(await r.json()); } catch(e) { /* ignore */ }
+				// load recent IMC records for dashboard cards
+				try { const r2 = await fetch('/api/imc'); if (r2.ok) setImcRecords(await r2.json()); } catch(e) { /* ignore */ }
 			}catch(e){
 				console.error('Auth check failed', e);
 				router.replace('/login');
@@ -216,6 +219,14 @@ useEffect(()=>{
 	}
 
 	async function selectDay(d){
+		// Toggle selected day: if clicking the already-selected day, deselect and show initial dashboard cards
+		if (selected && d && selected.id === d.id) {
+			setSelected(null);
+			setWorkouts([]);
+			setTimerSeconds(null);
+			if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+			return;
+		}
 		setSelected(d);
 		// initialize timer state from day
 		if (d && d.startedAt) {
@@ -1200,7 +1211,66 @@ useEffect(()=>{
 							</div>
 						</div>
 					) : (
-						<div className="card">Selecione um dia para ver e adicionar exercícios.</div>
+						<div>
+							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+								{/* IMC card (clickable, vibrant) */}
+								<div role="button" tabIndex={0} aria-label="Ir para IMC" onClick={() => router.push('/imc')} onKeyDown={(e)=>{ if (e.key === 'Enter' || e.key === ' ') router.push('/imc'); }} className="dashboard-card bg-white rounded-lg p-4 transition transform cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-200">
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-4 min-w-0">
+											<div className="w-14 h-14 rounded-full flex items-center justify-center icon-glow" style={{ background: 'linear-gradient(135deg,#fff7cc,#d4f523)', color: '#072000' }} aria-hidden>
+												<svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 20l9-5-9-5-9 5 9 5z" /><path d="M12 12l9-5-9-5-9 5 9 5z" /></svg>
+											</div>
+											<div className="min-w-0">
+												<div className="text-sm text-slate-600 truncate">IMC (último)</div>
+												<div className="text-2xl font-semibold text-slate-800 truncate">{imcRecords && imcRecords.length ? String(imcRecords[0].bmi) : '—'}</div>
+												<div className="text-xs text-slate-400">{imcRecords && imcRecords.length ? new Date(imcRecords[0].date).toLocaleDateString() : ''}</div>
+											</div>
+										</div>
+										<div className="text-xs font-medium text-emerald-600">Ver histórico →</div>
+									</div>
+									<div className="text-sm text-slate-600 mt-3">IMC é calculado a partir do peso e altura informados. Atualize em IMC para registrar novos valores.</div>
+								</div>
+
+								{/* Last weight card (clickable, lively) */}
+								<div role="button" tabIndex={0} aria-label="Ir para IMC" onClick={() => router.push('/imc')} onKeyDown={(e)=>{ if (e.key === 'Enter' || e.key === ' ') router.push('/imc'); }} className="dashboard-card bg-white rounded-lg p-4 transition transform cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-200">
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-4 min-w-0">
+											<div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#e0e7ff,#6366f1)', color: '#fff' }} aria-hidden>
+												<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 20v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+											</div>
+											<div className="min-w-0">
+												<div className="text-sm text-slate-600 truncate">Último peso</div>
+												<div className="text-2xl font-semibold text-slate-800 truncate">{imcRecords && imcRecords.length ? String(imcRecords[0].weight) + ' kg' : '—'}</div>
+												<div className="text-xs text-slate-400">{imcRecords && imcRecords.length ? new Date(imcRecords[0].date).toLocaleDateString() : ''}</div>
+											</div>
+										</div>
+										<div className="text-xs font-medium text-indigo-600">Ver histórico →</div>
+									</div>
+									<div className="text-sm text-slate-600 mt-3">Registre seu peso nos exercícios ou via IMC para manter histórico.</div>
+								</div>
+
+								{/* Summary card (clickable, colorful) */}
+								<div role="button" tabIndex={0} aria-label="Ir para IMC" onClick={() => router.push('/imc')} onKeyDown={(e)=>{ if (e.key === 'Enter' || e.key === ' ') router.push('/imc'); }} className="dashboard-card bg-white rounded-lg p-4 transition transform cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-200">
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-4 min-w-0">
+											<div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#ffe4e6,#fb7185)', color: '#fff' }} aria-hidden>
+												<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v4H3z" /><path d="M5 7v13" /><path d="M19 7v13" /></svg>
+											</div>
+											<div className="min-w-0">
+												<div className="text-sm text-slate-600 truncate">Resumo</div>
+												<div className="text-2xl font-semibold text-slate-800 truncate">{totalExercises} exercícios</div>
+												<div className="text-xs text-slate-400">{completedExercises} concluídos</div>
+											</div>
+										</div>
+										<div className="text-xs font-medium text-rose-600">Ver histórico →</div>
+									</div>
+									<div className="text-sm text-slate-600 mt-3">Selecione um dia para ver os exercícios e começar.</div>
+								</div>
+							</div>
+							<div className="mt-4">
+								<p className="text-sm text-slate-500">Dica: adicione seu peso e altura em IMC para receber uma visão mais precisa do seu progresso.</p>
+							</div>
+						</div>
 					)}
 				</section>
 			</main>
@@ -1217,6 +1287,17 @@ useEffect(()=>{
 					}
 					.modal-pop { animation: popIn 320ms cubic-bezier(.16,1,.3,1); transform-origin: center top; }
 					.modal-pop-exit { animation: popOut 220ms ease forwards; }
+				`}</style>
+
+				{/* Dashboard card enhancements */}
+				<style jsx global>{`
+					.dashboard-card { border: 1px solid rgba(2,6,23,0.04); box-shadow: 0 6px 18px rgba(2,6,23,0.04); }
+					.dashboard-card:hover { transform: translateY(-8px); box-shadow: 0 20px 50px rgba(2,6,23,0.10); }
+					.dashboard-card:focus { outline: none; box-shadow: 0 12px 36px rgba(2,6,23,0.08); }
+					.icon-glow { box-shadow: 0 10px 30px rgba(212,245,35,0.12); }
+					@media (prefers-reduced-motion: no-preference) {
+						.dashboard-card { transition: transform 260ms cubic-bezier(.16,1,.3,1), box-shadow 260ms ease; }
+					}
 				`}</style>
 
 				{/* Custom Add Exercise Modal (replaces SweetAlert2 for creation) */}
