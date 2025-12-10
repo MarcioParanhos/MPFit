@@ -6,7 +6,8 @@ export default async function handler(req, res) {
   if (!user) return res.status(401).json({ error: 'unauthorized' });
   if (req.method === 'GET') {
     try {
-      const ex = await db.getExercises();
+      const search = req.query && req.query.search ? String(req.query.search) : null;
+      const ex = await db.getExercises(search);
       return res.status(200).json(ex);
     } catch (e) { console.error(e); return res.status(500).json({ error: String(e && e.message ? e.message : e) }); }
   }

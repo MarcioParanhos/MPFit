@@ -1126,7 +1126,7 @@ useEffect(()=>{
 											) : null })()}
 											<div className="flex items-start justify-between gap-4">
 												<div className="flex-1 min-w-0">
-													<div className="font-semibold text-sm break-words">{w.name}</div>
+													<div className="font-semibold text-sm truncate" title={w.name}>{w.name}</div>
 													<div className="text-sm text-slate-500 truncate">Séries: {w.plannedSets} • Reps: {w.plannedReps}</div>
 													{w.youtube && <div className="mt-1"><a className="text-indigo-600 text-sm" href={w.youtube} target="_blank" rel="noreferrer">Vídeo</a></div>}
 												</div>
@@ -1279,9 +1279,9 @@ useEffect(()=>{
 																<li key={ex.id} data-exercise-item data-id={ex.id} className="px-2 py-1 rounded hover:bg-slate-50 cursor-pointer flex items-center justify-between" onClick={() => { setModalExerciseId(String(ex.id)); setShowExerciseDropdown(false); setExerciseSearch(''); }}>
 																	<div className="flex items-center gap-2 min-w-0">
 																		{ex.imagePath ? <img src={ex.imagePath} alt={ex.name} className="w-8 h-8 rounded object-cover flex-shrink-0" /> : <div className="w-8 h-8 rounded bg-slate-100 flex-shrink-0" />}
-																		<span className="text-sm truncate">{ex.name}</span>
+																		<span className="text-sm truncate" title={ex.name}>{ex.name}</span>
 																	</div>
-																	{ex.targetMuscle ? <span className="text-xs text-slate-400 ml-2">{ex.targetMuscle}</span> : null}
+																	{ex.targetMuscle ? <span className="text-xs text-slate-400 ml-2 whitespace-nowrap" title={ex.targetMuscle}>{ex.targetMuscle}</span> : null}
 																</li>
 																))}
 															</ul>
