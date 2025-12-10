@@ -76,6 +76,14 @@ export default function AppPage(){
 	const [selected, setSelected] = useState(null);
 	const [workouts, setWorkouts] = useState([]);
 	const [exercisesList, setExercisesList] = useState([]);
+	const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
+	const [exerciseSearch, setExerciseSearch] = useState('');
+	const exerciseDropdownRef = useRef(null);
+	const [searchResults, setSearchResults] = useState(null);
+	const [isSearching, setIsSearching] = useState(false);
+
+	const ASYNC_SEARCH_MIN = 2; // only trigger async fetch for queries length >= 2
+
 	const [showAddExerciseModal, setShowAddExerciseModal] = useState(false);
 	const [modalExerciseId, setModalExerciseId] = useState('');
 	const [modalSets, setModalSets] = useState('');
@@ -542,6 +550,52 @@ useEffect(()=>{
 		try { modalFirstRef.current.focus(); } catch(e) { /* ignore */ }
 	}
 	},[showAddExerciseModal]);
+
+// close exercise dropdown when clicking outside
+useEffect(()=>{
+	function onDoc(e){
+		if (!exerciseDropdownRef.current) return;
+		if (!exerciseDropdownRef.current.contains(e.target) && showExerciseDropdown) setShowExerciseDropdown(false);
+	}
+	function onKey(e){ if (e.key === 'Escape' && showExerciseDropdown) setShowExerciseDropdown(false); }
+	if (showExerciseDropdown) {
+		document.addEventListener('mousedown', onDoc);
+		document.addEventListener('keydown', onKey);
+	}
+	return ()=>{
+		document.removeEventListener('mousedown', onDoc);
+		document.removeEventListener('keydown', onKey);
+	};
+},[showExerciseDropdown]);
+
+// async search for exercises (debounced)
+useEffect(()=>{
+	let t = null;
+	if (!exerciseSearch || exerciseSearch.length < ASYNC_SEARCH_MIN) {
+		setSearchResults(null);
+		setIsSearching(false);
+		return;
+	}
+	setIsSearching(true);
+	t = setTimeout(async ()=>{
+		try {
+			const q = encodeURIComponent(exerciseSearch.trim());
+			const res = await fetch(`/api/exercises?search=${q}`);
+			if (res.ok) {
+				const data = await res.json();
+				setSearchResults(data || []);
+			} else {
+				setSearchResults(null);
+			}
+		} catch(e) {
+			console.error('exercise async search failed', e);
+			setSearchResults(null);
+		} finally {
+			setIsSearching(false);
+		}
+	}, 300);
+	return ()=>{ if (t) clearTimeout(t); };
+},[exerciseSearch]);
 
 	// focus first control when Add Day modal opens
 useEffect(()=>{
@@ -1183,11 +1237,61 @@ useEffect(()=>{
 							</div>
 							<div className="space-y-3">
 								<label className="block text-sm font-medium">Exercício</label>
-								<select ref={modalFirstRef} className="w-full border border-slate-200 bg-slate-50 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={modalExerciseId} onChange={(e)=>{ setModalExerciseId(e.target.value); }}>
-									{exercisesList && exercisesList.length ? exercisesList.map(ex => (
-										<option key={ex.id} value={ex.id}>{ex.name}{ex.targetMuscle ? ' — '+ex.targetMuscle : ''}</option>
-									)) : null}
-								</select>
+								<div className="relative">
+									<button type="button" className="w-full text-left border border-slate-200 bg-white rounded-md px-3 py-2 flex items-center justify-between" onClick={() => { setShowExerciseDropdown(v => !v); }} aria-haspopup="listbox" aria-expanded={showExerciseDropdown}>
+										<span className="truncate text-sm">{(exercisesList.find(ex => String(ex.id) === String(modalExerciseId)) || {}).name || 'Selecione um exercício'}</span>
+										<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+											<path d="M6 9l6 6 6-6" />
+										</svg>
+									</button>
+									{showExerciseDropdown && (
+										<div ref={exerciseDropdownRef} className="absolute left-0 mt-2 w-full bg-white border border-slate-200 rounded-md shadow-lg max-h-[48vh] overflow-auto z-50">
+											<div className="p-2">
+												<input ref={modalFirstRef} className="w-full px-3 py-2 rounded-md border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-200" placeholder="Buscar exercícios..." value={exerciseSearch} onChange={(e)=>setExerciseSearch(e.target.value)} onKeyDown={(e)=>{
+													if (e.key === 'Enter') {
+														// select first matching
+														e.preventDefault();
+														const first = Array.from(document.querySelectorAll('[data-exercise-item]')).find(el => el.dataset && el.dataset.id);
+														if (first) { setModalExerciseId(first.dataset.id); setShowExerciseDropdown(false); }
+													}
+													}} />
+												{isSearching ? <div className="text-sm text-slate-500 mt-2">Buscando...</div> : null}
+											</div>
+											{/* grouped list by target muscle (source: searchResults when available, otherwise exercisesList) */}
+											{(() => {
+												const q = String(exerciseSearch || '').toLowerCase().trim();
+												const source = (q && searchResults) ? searchResults : exercisesList || [];
+												const items = source.filter(ex => {
+													if (!q) return true;
+													return (String(ex.name||'')+ ' ' + String(ex.targetMuscle||'')).toLowerCase().includes(q);
+												});
+												const groups = items.reduce((acc, ex) => {
+													const key = ex.targetMuscle || 'Outros';
+													if (!acc[key]) acc[key] = [];
+													acc[key].push(ex);
+													return acc;
+												}, {});
+												return Object.keys(groups).length ? Object.keys(groups).map((g) => (
+													<div key={g} className="p-2 border-t border-slate-100 last:border-b-0">
+														<div className="text-xs text-slate-500 font-semibold mb-1">{g}</div>
+														<ul className="space-y-1">
+															{groups[g].map(ex => (
+																<li key={ex.id} data-exercise-item data-id={ex.id} className="px-2 py-1 rounded hover:bg-slate-50 cursor-pointer flex items-center justify-between" onClick={() => { setModalExerciseId(String(ex.id)); setShowExerciseDropdown(false); setExerciseSearch(''); }}>
+																	<div className="flex items-center gap-2 min-w-0">
+																		{ex.imagePath ? <img src={ex.imagePath} alt={ex.name} className="w-8 h-8 rounded object-cover flex-shrink-0" /> : <div className="w-8 h-8 rounded bg-slate-100 flex-shrink-0" />}
+																		<span className="text-sm truncate">{ex.name}</span>
+																	</div>
+																	{ex.targetMuscle ? <span className="text-xs text-slate-400 ml-2">{ex.targetMuscle}</span> : null}
+																</li>
+																))}
+															</ul>
+														</div>
+													)) : <div className="p-3 text-sm text-slate-500">Nenhum exercício encontrado.</div>;
+												})()}
+											</div>
+										)}
+								</div>
+						
 								{(!exercisesList || exercisesList.length === 0) && (
 									<div className="text-sm text-slate-600 mt-2">Nenhum exercício disponível. Cadastre exercícios no catálogo primeiro.</div>
 								)}
