@@ -833,11 +833,6 @@ useEffect(()=>{
 								<div className="text-sm font-medium">Carregando seus dias...</div>
 								<div className="text-xs text-slate-500">Aguarde enquanto buscamos seus treinos e configurações.</div>
 							</div>
-						) : days.length===0 ? (
-							<div className="card w-full text-center p-6">
-								<div className="mb-3 text-sm text-slate-600">Não há dias criados ainda.</div>
-								<button className="btn" onClick={addDay}>Adicionar primeiro dia</button>
-							</div>
 						) : null}
 
 						{/* Current Weight Modal (same style as other modals) */}
