@@ -11,7 +11,7 @@ export default async function handler(req, res){
     if (!user) return res.status(401).json({ error: 'invalid credentials' });
     const ok = await bcrypt.compare(password, user.passwordHash || user.password_hash || user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'invalid credentials' });
-    setTokenCookie(res, { id: user.id, email: user.email, name: user.name || null });
-    return res.status(200).json({ id: user.id, email: user.email, name: user.name || null });
+    setTokenCookie(res, { id: user.id, email: user.email, name: user.name || null, admin: !!user.admin });
+    return res.status(200).json({ id: user.id, email: user.email, name: user.name || null, admin: !!user.admin });
   } catch (e){ console.error(e); return res.status(500).json({ error: String(e && e.message ? e.message : e) }); }
 }

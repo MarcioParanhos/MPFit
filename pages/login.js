@@ -15,6 +15,7 @@ export default function Login() {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
@@ -24,7 +25,11 @@ export default function Login() {
         setLoading(false);
         return;
       }
-      router.push('/app');
+      if (data.admin) {
+        router.push('/admin');
+      } else {
+        router.push('/app');
+      }
     } catch (err) {
       setError(String(err));
       setLoading(false);
