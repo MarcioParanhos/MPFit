@@ -301,7 +301,7 @@ export default function ImcPage(){
       `}</style>
       <header className="header p-4 bg-white shadow-sm flex items-center justify-between lg:fixed lg:top-0 lg:left-0 lg:right-0 lg:h-16 lg:z-50">
         <div className="flex items-center gap-3">
-          <img src="/images/TRAINHUB.png" alt="TrainHub" className="h-8" />
+          <img src="/images/TRANINGHUB.svg" alt="TrainHub" className="h-8" />
         </div>
         <div className="flex gap-2 items-center">
           {/* menu button replaces voltar — abre off-canvas */}

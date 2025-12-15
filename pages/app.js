@@ -141,6 +141,10 @@ export default function AppPage(){
 	const [shareCode, setShareCode] = useState('');
 	const shareModalFirstRef = useRef(null);
 	const [timerSeconds, setTimerSeconds] = useState(null);
+	const [showStartModal, setShowStartModal] = useState(false);
+	const [startModalMode, setStartModalMode] = useState('start'); // 'start' or 'cancel'
+	const [startModalLoading, setStartModalLoading] = useState(false);
+	const [startModalError, setStartModalError] = useState('');
 	const timerRef = useRef(null);
 	const [draggingId, setDraggingId] = useState(null);
 	const [dragOverIndex, setDragOverIndex] = useState(null);
@@ -499,6 +503,30 @@ async function handleConfirmLogout(){
 		Swal.fire({ icon: 'success', text: 'Treino iniciado: marcadores resetados' });
 	}
 
+	async function cancelStartAction(){
+		if (!selected) return Swal.fire({ icon: 'info', text: 'Selecione um dia' });
+		try {
+			const res = await fetch(`/api/days/${selected.id}/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cancel: true }) });
+			let body = null;
+			try { body = await res.json(); } catch (e) { /* ignore */ }
+			if (!res.ok) {
+				return Swal.fire({ icon: 'error', text: 'Falha ao cancelar contagem' });
+			}
+			const day = body;
+			await loadDays();
+			setSelected(day);
+			const r = await fetch(`/api/days/${day.id}/workouts`); setWorkouts(await r.json());
+			setTimerSeconds(null);
+			if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+			Swal.fire({ icon: 'success', text: 'Contador cancelado' });
+		} catch (e) {
+			console.error('cancelStartAction failed', e);
+			Swal.fire({ icon: 'error', text: 'Erro ao cancelar contagem' });
+		}
+	}
+
+ 
+
 	async function completeDayAction(){
 		if (!selected) return Swal.fire({ icon: 'info', text: 'Selecione um dia' });
 		const res = await fetch(`/api/days/${selected.id}/complete`, { method: 'POST' });
@@ -747,12 +775,12 @@ useEffect(()=>{
 				}
 			`}</style>
 			<header className="header">
-				<div className="flex items-center gap-2">
-					<img src="/images/TRAINHUB.png" alt="TrainHub" className="h-8" />
+				<div className="flex items-center gap-1 px-3">
+					<img src="/images/TRANINGHUB.svg" alt="TrainHub" className="h-20" />
 				</div>
-				<div className="flex gap-2 items-center">
+				<div className="flex gap-1 items-center">
 					{/* menu button replaces avatar — opens off-canvas */}
-					<button type="button" onClick={(e)=>{ e.preventDefault(); setOffCanvasOpen(v=>!v); }} className="flex items-center justify-center p-2" aria-haspopup="true" aria-expanded={offCanvasOpen} aria-label="Abrir menu" title="Abrir menu">
+					<button type="button" onClick={(e)=>{ e.preventDefault(); setOffCanvasOpen(v=>!v); }} className="flex items-center justify-center p-1" aria-haspopup="true" aria-expanded={offCanvasOpen} aria-label="Abrir menu" title="Abrir menu">
 						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
 							<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
 							<path d="M10 6h10" />
@@ -975,6 +1003,45 @@ useEffect(()=>{
 								</div>
 							</div>
 						)}
+
+								{/* Start / Cancel modal (same style as Add/Edit exercise modal) */}
+								{showStartModal && (
+									<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
+										<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowStartModal(false); }} aria-hidden />
+										<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop mx-4" style={{ zIndex: 10000, position: 'relative' }}>
+											<button aria-label="Fechar" title="Fechar" className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowStartModal(false)}>
+												<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+													<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+													<path d="M18 6l-12 12" />
+													<path d="M6 6l12 12" />
+												</svg>
+											</button>
+											<div className="mb-3">
+												<h3 className="text-lg font-semibold">{startModalMode === 'start' ? 'Iniciar treino' : 'Cancelar contagem'}</h3>
+												<div className="text-sm text-slate-500">{startModalMode === 'start' ? 'Ao iniciar, os exercícios serão resetados como não concluídos e o temporizador começará.' : 'Isto irá cancelar a contagem atual do treino. Os marcadores de concluído não serão alterados.'}</div>
+											</div>
+											<div className="space-y-3">
+												{startModalError ? <div className="text-sm text-red-600" role="alert">{startModalError}</div> : null}
+											</div>
+											<div className="mt-4 flex justify-end gap-2">
+												<button className="px-3 py-2 rounded" onClick={()=>setShowStartModal(false)}>Fechar</button>
+												<button className={`inline-flex items-center gap-2 px-4 py-2 rounded-md font-semibold shadow-sm hover:shadow-md transition ${startModalMode==='cancel' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`} onClick={async ()=>{
+													setStartModalLoading(true); setStartModalError('');
+													try {
+														if (startModalMode === 'start') {
+															await startDayAction();
+														} else {
+															await cancelStartAction();
+														}
+														setShowStartModal(false);
+													} catch (e) {
+														console.error(e); setStartModalError(e.message || 'Erro inesperado');
+													} finally { setStartModalLoading(false); }
+												}} disabled={startModalLoading}>{startModalLoading ? '...' : (startModalMode==='cancel' ? 'Cancelar' : 'Iniciar')}</button>
+											</div>
+										</div>
+									</div>
+								)}
 						{days.map(d => <DayItem key={d.id} d={d} active={selected && selected.id===d.id} onClick={()=>selectDay(d)} />)}
 						<AddDayTile key="add-day-tile" onClick={addDay} />
 					</div>
@@ -1009,11 +1076,21 @@ useEffect(()=>{
 													<span className="font-mono">{formatDuration(timerSeconds)}</span>
 												</div>
 											)}
-											<button className="btn p-2 bg-indigo-600 text-white rounded-full w-8 h-8 flex items-center justify-center" onClick={startDayAction} aria-label="Iniciar treino" title="Iniciar treino">
-												<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-													<path d="M5 3l15 9L5 21V3z" />
-												</svg>
-											</button>
+
+
+											{selected && selected.startedAt ? (
+												<button className="btn p-2 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center" onClick={() => { setStartModalMode('cancel'); setShowStartModal(true); }} aria-label="Cancelar treino" title="Cancelar treino">
+													<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="white" aria-hidden>
+														<rect x="6" y="6" width="12" height="12" rx="2" />
+													</svg>
+												</button>
+											) : (
+												<button className="btn p-2 bg-indigo-600 text-white rounded-full w-8 h-8 flex items-center justify-center" onClick={() => { setStartModalMode('start'); setShowStartModal(true); }} aria-label="Iniciar treino" title="Iniciar treino">
+													<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+														<path d="M5 3l15 9L5 21V3z" />
+													</svg>
+												</button>
+											)}
 											<button className="btn p-2 bg-emerald-600 text-white rounded-full w-8 h-8 flex items-center justify-center" onClick={completeDayAction} aria-label="Concluir dia" title="Concluir dia">
 												<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
 													<path d="M20 6L9 17l-5-5" />
@@ -1180,15 +1257,22 @@ useEffect(()=>{
 											</div>
 											<div className="mt-3">
 												<div className="flex items-center justify-between mb-2">
-													<label className="flex items-center gap-2 text-sm">
-														<input type="checkbox" checked={!!w.completed} onChange={async (e) => {
-															const next = e.target.checked;
-															await fetch(`/api/workouts/${w.id}/complete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ completed: next }) });
-															const res = await fetch(`/api/days/${selected.id}/workouts`);
-															setWorkouts(await res.json());
-														}} />
-														<span className="whitespace-nowrap">{w.completed ? 'Concluído' : 'Marcar concluído'}</span>
-													</label>
+													{(selected && selected.startedAt) ? (
+														<label className="flex items-center gap-2 text-sm">
+															<input type="checkbox" checked={!!w.completed} onChange={async (e) => {
+																const next = e.target.checked;
+																await fetch(`/api/workouts/${w.id}/complete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ completed: next }) });
+																const res = await fetch(`/api/days/${selected.id}/workouts`);
+																setWorkouts(await res.json());
+															}} />
+															<span className="whitespace-nowrap">{w.completed ? 'Concluído' : 'Marcar concluído'}</span>
+														</label>
+													) : (
+														<div className="px-3 py-1 rounded-md bg-slate-50 border border-slate-200 text-sm text-slate-700">
+															<span className="font-semibold">Inicie o treino</span>
+															<span className="text-slate-500"> para habilitar marcar exercícios como concluídos.</span>
+														</div>
+													)}
 													<div className="text-sm text-slate-600">&nbsp;</div>
 												</div>
 												<ul className="space-y-2">
@@ -1513,33 +1597,34 @@ useEffect(()=>{
 					</div>
 				)}
 
-				{/* Image Preview Modal */}
+				{/* Image Preview Modal (styled like other modals) */}
 				{showImageModal && (
 					<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }} role="dialog" aria-modal="true" aria-label={imageModalTitle || 'Visualizador de imagem'}>
-						<div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={(e)=>{ if (e.target === e.currentTarget) setShowImageModal(false); }} aria-hidden />
-						<div className="relative bg-white rounded-lg shadow-2xl max-w-3xl w-full mx-4 p-4" style={{ zIndex: 10000 }}>
+						<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowImageModal(false); }} aria-hidden />
+						<div className="bg-white rounded-lg shadow-xl max-w-3xl w-full p-4 modal-pop mx-4" style={{ zIndex: 10000, position: 'relative' }}>
 							<button ref={imageModalCloseRef} className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowImageModal(false)} aria-label="Fechar visualizador">
-								<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+								<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
 									<path stroke="none" d="M0 0h24v24H0z" fill="none" />
-									<path d="M18 6L6 18" />
+									<path d="M18 6l-12 12" />
 									<path d="M6 6l12 12" />
 								</svg>
 							</button>
-							<div className="flex flex-col md:flex-row gap-4 items-center">
-								<div className="flex-1 flex items-center justify-center max-h-[70vh] overflow-hidden">
-									<img src={imageModalSrc} alt={imageModalTitle} className="max-h-[70vh] w-auto max-w-full object-contain rounded" />
+							<div className="mb-3">
+								<h3 className="text-lg font-semibold">{imageModalTitle || 'Imagem'}</h3>
+								<div className="text-sm text-slate-500">Visualização do exercício</div>
+							</div>
+							<div className="flex flex-col md:flex-row gap-4 items-start">
+								<div className="flex-1 flex items-center justify-center max-h-[70vh] overflow-hidden bg-slate-50 rounded">
+									<img src={imageModalSrc} alt={imageModalTitle} className="max-h-[70vh] w-auto max-w-full object-contain" />
 								</div>
 								<div className="md:w-72">
-									<h4 className="text-lg font-semibold">{imageModalTitle}</h4>
-									<div className="text-sm text-slate-600 mt-2">Visualização do exercício. Use os botões para abrir em nova aba ou baixar a imagem.</div>
-									<div className="mt-4">
-										<a aria-label="Baixar imagem" title="Baixar" className="px-3 py-2 rounded text-sm inline-flex items-center justify-center" href={imageModalSrc} download style={{ backgroundColor: '#d4f523', color: '#072000' }}>
-											<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
-												<path stroke="none" d="M0 0h24v24H0z" fill="none" />
-												<path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" />
-												<path d="M7 11l5 5l5 -5" />
-												<path d="M12 4l0 12" />
-											</svg>
+									<div className="text-sm text-slate-600">Use os botões abaixo para abrir em nova aba ou baixar a imagem.</div>
+									<div className="mt-4 flex flex-col gap-2">
+										<a aria-label="Abrir em nova aba" title="Abrir em nova aba" className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-slate-200 bg-white text-sm" href={imageModalSrc} target="_blank" rel="noreferrer">
+											Abrir em nova aba
+										</a>
+										<a aria-label="Baixar imagem" title="Baixar" className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-semibold shadow-sm hover:shadow-md transition" href={imageModalSrc} download style={{ backgroundColor: '#d4f523', color: '#072000' }}>
+											Baixar imagem
 										</a>
 									</div>
 								</div>
@@ -1550,5 +1635,6 @@ useEffect(()=>{
 		</div>
 	)
 }
+
 
 
