@@ -108,6 +108,14 @@ export default function AppPage(){
 	const [imageModalTitle, setImageModalTitle] = useState('');
 	const imageModalCloseRef = useRef(null);
 
+	// Smart Assistant modal state
+	const [showAssistantModal, setShowAssistantModal] = useState(false);
+	const [assistantWeight, setAssistantWeight] = useState('');
+	const [assistantHeight, setAssistantHeight] = useState('');
+	const [assistantMuscle, setAssistantMuscle] = useState('');
+	const [assistantLoading, setAssistantLoading] = useState(false);
+	const [assistantError, setAssistantError] = useState('');
+
 	// Edit modal state (new modal, same pattern as creation)
 	const [showEditModal, setShowEditModal] = useState(false);
 	const [editModalWorkout, setEditModalWorkout] = useState(null);
@@ -130,6 +138,10 @@ export default function AppPage(){
 	const logoutModalFirstRef = useRef(null);
 	// Delete workout modal state
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
+	const [showDeleteDayModal, setShowDeleteDayModal] = useState(false);
+	const [deleteDayLoading, setDeleteDayLoading] = useState(false);
+	const [deleteDayError, setDeleteDayError] = useState('');
+	const deleteDayFirstRef = useRef(null);
 	const [deleteModalWorkoutId, setDeleteModalWorkoutId] = useState(null);
 	const [deleteModalLoading, setDeleteModalLoading] = useState(false);
 	const [deleteModalError, setDeleteModalError] = useState('');
@@ -404,6 +416,26 @@ async function handleConfirmLogout(){
 	}
 }
 
+async function handleConfirmDeleteDay(){
+	if (deleteDayLoading) return;
+	setDeleteDayError(''); setDeleteDayLoading(true);
+	try {
+		if (!selected || !selected.id) throw new Error('Dia inválido');
+		const res = await fetch(`/api/days/${selected.id}`, { method: 'DELETE' });
+		if (!res.ok) throw new Error('Falha ao excluir dia');
+		await loadDays();
+		setSelected(null);
+		setWorkouts([]);
+		setShowDeleteDayModal(false);
+		try { Swal.fire({ icon: 'success', text: 'Dia e registros excluídos' }); } catch(e) { /* ignore */ }
+	} catch (e) {
+		console.error(e);
+		setDeleteDayError(e.message || 'Erro inesperado');
+	} finally {
+		setDeleteDayLoading(false);
+	}
+}
+
 	async function setCurrentWeight(workoutId){
 		// open the custom modal and prefill with current weight if available
 		const w = workouts.find(x => x.id === workoutId);
@@ -432,6 +464,44 @@ async function handleConfirmLogout(){
 			setWeightModalLoading(false);
 		}
 	}
+
+	function computeImc(weight, height){
+ 		const w = Number(weight);
+ 		const h = Number(height);
+ 		if (!w || !h) return null;
+ 		return w / ((h/100)*(h/100));
+ 	}
+
+	async function handleGenerateAssistant(){
+ 		if (assistantLoading) return;
+ 		setAssistantError(''); setAssistantLoading(true);
+ 		try {
+ 			const body = { weight: assistantWeight === '' ? null : Number(assistantWeight), height: assistantHeight === '' ? null : Number(assistantHeight), muscle: assistantMuscle };
+ 			const res = await fetch('/api/assistant/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+ 			const data = await res.json().catch(()=>null);
+ 			if (!res.ok) {
+ 				const msg = (data && data.error) ? data.error : 'Falha ao gerar treino';
+ 				setAssistantError(msg);
+ 				return;
+ 			}
+ 			// refresh days and open the created day
+ 			if (data && data.day) {
+ 				await loadDays();
+ 				setShowAssistantModal(false);
+ 				setSelected(data.day);
+ 				const r = await fetch(`/api/days/${data.day.id}/workouts`);
+ 				setWorkouts(await r.json());
+ 				Swal.fire({ icon: 'success', text: 'Dia gerado com sucesso' });
+ 			} else {
+ 				Swal.fire({ icon: 'success', text: 'Dia gerado' });
+ 			}
+ 		} catch (e) {
+ 			console.error('assistant generate failed', e);
+ 			setAssistantError(e.message || 'Erro inesperado');
+ 		} finally {
+ 			setAssistantLoading(false);
+ 		}
+ 	}
 
 	function editWorkout(w){
 		if(!w) return;
@@ -648,6 +718,25 @@ useEffect(()=>{
 	const usedDayNames = (days || []).map(d => d && d.name).filter(Boolean);
 	const availableWeekDays = WEEK_DAYS.filter(w => !usedDayNames.includes(w));
 
+	// derive available muscle targets from exercisesList
+	const muscleOptions = Array.from(new Set((exercisesList || []).map(e => e.targetMuscle || '').filter(Boolean))).sort((a,b)=>a.localeCompare(b, 'pt-BR'));
+
+	useEffect(()=>{
+		if (showAssistantModal) {
+			if (muscleOptions.length && (!assistantMuscle || assistantMuscle === '')) setAssistantMuscle(muscleOptions[0]);
+		}
+	},[showAssistantModal, exercisesList]);
+
+	// selected personalized muscle (derived from workouts -> exercisesList)
+	let selectedPersonalMuscle = null;
+	if (selected && selected.name === 'Exercicio Personalizado') {
+		const w = (workouts || []).find(x => x && x.exerciseId);
+		if (w && exercisesList && exercisesList.length) {
+			const ex = exercisesList.find(e => Number(e.id) === Number(w.exerciseId));
+			selectedPersonalMuscle = ex ? ex.targetMuscle : null;
+		}
+	}
+
 // lock body scroll and add ESC handler for image modal
 useEffect(()=>{
 	if (!showImageModal) return;
@@ -680,6 +769,13 @@ useEffect(()=>{
 		try { deleteModalFirstRef.current.focus(); } catch(e) { /* ignore */ }
 	}
 },[showDeleteModal]);
+
+// focus delete day modal when opens
+useEffect(()=>{
+    if (showDeleteDayModal && deleteDayFirstRef && deleteDayFirstRef.current) {
+        try { deleteDayFirstRef.current.focus(); } catch(e) { /* ignore */ }
+    }
+},[showDeleteDayModal]);
 
 // focus logout modal when opens
 useEffect(()=>{
@@ -779,6 +875,19 @@ useEffect(()=>{
 					<img src="/images/TRANINGHUB.svg" alt="TrainHub" className="h-20" />
 				</div>
 				<div className="flex gap-1 items-center">
+					{/* Smart Assistant button (bot icon) */}
+					<button type="button" onClick={(e)=>{ e.preventDefault(); setShowAssistantModal(true); }} className="flex items-center justify-center p-1 mr-1" aria-label="Assistente" title="Assistente inteligente">
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
+							<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+							<path d="M11.217 19.384a3.501 3.501 0 0 0 6.783 -1.217v-5.167l-6 -3.35" />
+							<path d="M5.214 15.014a3.501 3.501 0 0 0 4.446 5.266l4.34 -2.534v-6.946" />
+							<path d="M6 7.63c-1.391 -.236 -2.787 .395 -3.534 1.689a3.474 3.474 0 0 0 1.271 4.745l4.263 2.514l6 -3.348" />
+							<path d="M12.783 4.616a3.501 3.501 0 0 0 -6.783 1.217v5.067l6 3.45" />
+							<path d="M18.786 8.986a3.501 3.501 0 0 0 -4.446 -5.266l-4.34 2.534v6.946" />
+							<path d="M18 16.302c1.391 .236 2.787 -.395 3.534 -1.689a3.474 3.474 0 0 0 -1.271 -4.745l-4.308 -2.514l-5.955 3.42" />
+						</svg>
+					</button>
+
 					{/* menu button replaces avatar — opens off-canvas */}
 					<button type="button" onClick={(e)=>{ e.preventDefault(); setOffCanvasOpen(v=>!v); }} className="flex items-center justify-center p-1" aria-haspopup="true" aria-expanded={offCanvasOpen} aria-label="Abrir menu" title="Abrir menu">
 						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
@@ -896,7 +1005,81 @@ useEffect(()=>{
 									</div>
 								</div>
 							</div>
-						)}
+									)}
+
+							{/* Delete Day Modal (standard modal pattern) */}
+							{showDeleteDayModal && (
+								<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }} role="dialog" aria-modal="true" aria-label="Excluir dia">
+									<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowDeleteDayModal(false); }} aria-hidden />
+									<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop mx-4" style={{ zIndex: 10000, position: 'relative' }}>
+										<button aria-label="Fechar" title="Fechar" className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowDeleteDayModal(false)}>
+											<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+												<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+												<path d="M18 6l-12 12" />
+												<path d="M6 6l12 12" />
+											</svg>
+										</button>
+										<div className="mb-3">
+											<h3 className="text-lg font-semibold">Excluir dia?</h3>
+											<div className="text-sm text-slate-500">Isto removerá o dia e todos os exercícios e registros vinculados.</div>
+										</div>
+										<div className="space-y-3">
+											<div className="text-sm text-slate-700">{selected ? <><strong>{selected.name}</strong><div className="text-xs text-slate-500">{selected.subtitle}</div></> : null}</div>
+											{deleteDayError ? <div className="text-sm text-red-600 mt-2" role="alert">{deleteDayError}</div> : null}
+										</div>
+										<div className="mt-4 flex justify-end gap-2">
+											<button className="px-3 py-2 rounded" onClick={()=>setShowDeleteDayModal(false)}>Fechar</button>
+											<button ref={deleteDayFirstRef} className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-semibold shadow-sm hover:shadow-md transition bg-red-600 text-white" onClick={handleConfirmDeleteDay} disabled={deleteDayLoading}>{deleteDayLoading ? '...' : 'Sim, excluir'}</button>
+										</div>
+									</div>
+								</div>
+							)}
+
+									{/* Smart Assistant Modal */}
+									{showAssistantModal && (
+										<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }} role="dialog" aria-modal="true" aria-label="Assistente inteligente">
+											<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowAssistantModal(false); }} aria-hidden />
+											<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop mx-4" style={{ zIndex: 10000, position: 'relative' }}>
+												<button aria-label="Fechar" title="Fechar" className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowAssistantModal(false)}>
+													<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+														<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+														<path d="M18 6l-12 12" />
+														<path d="M6 6l12 12" />
+													</svg>
+												</button>
+												<div className="mb-3">
+													<h3 className="text-lg font-semibold">Assistente inteligente</h3>
+													<div className="text-sm text-slate-500">Preencha alguns dados rápidos para gerar um dia de treino personalizado.</div>
+												</div>
+												<div className="space-y-3">
+													<div>
+														<label className="block text-sm font-medium">Peso (kg)</label>
+														<input className="w-full border border-slate-200 rounded-md px-3 py-2" value={assistantWeight} onChange={(e)=>setAssistantWeight(e.target.value)} placeholder="Ex: 75" />
+													</div>
+													<div>
+														<label className="block text-sm font-medium">Altura (cm)</label>
+														<input className="w-full border border-slate-200 rounded-md px-3 py-2" value={assistantHeight} onChange={(e)=>setAssistantHeight(e.target.value)} placeholder="Ex: 175" />
+													</div>
+													<div>
+														<label className="block text-sm font-medium">Músculo alvo</label>
+														{muscleOptions.length === 0 ? (
+															<div className="text-sm text-slate-600 mt-2">Nenhum músculo disponível no banco de dados.</div>
+														) : (
+															<select className="w-full border border-slate-200 rounded-md px-3 py-2" value={assistantMuscle} onChange={(e)=>setAssistantMuscle(e.target.value)}>
+																{muscleOptions.map(m => (<option key={m} value={m}>{m}</option>))}
+															</select>
+														)}
+													</div>
+													{assistantError ? <div className="text-sm text-red-600">{assistantError}</div> : null}
+													<div className="text-sm text-slate-600">IMC: {computeImc(assistantWeight, assistantHeight) ? computeImc(assistantWeight, assistantHeight).toFixed(1) : '-'}</div>
+												</div>
+												<div className="mt-4 flex justify-end gap-2">
+													<button className="px-3 py-2 rounded" onClick={()=>setShowAssistantModal(false)}>Fechar</button>
+													<button className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-semibold shadow-sm hover:shadow-md transition" onClick={handleGenerateAssistant} disabled={assistantLoading || muscleOptions.length === 0 || !assistantMuscle} style={{ backgroundColor: '#d4f523', color: '#072000' }}>{assistantLoading ? 'Gerando...' : 'Gerar e salvar'}</button>
+												</div>
+											</div>
+										</div>
+									)}
 
 						{/* Share Day Modal (same pattern as other modals) */}
 						{showShareModal && (
@@ -1060,7 +1243,7 @@ useEffect(()=>{
 										<h2 className="text-xl font-semibold truncate min-w-0">{selected.name}</h2>
 										{/* shared pill moved to footer to avoid header wrapping */}
 									</div>
-									{selected.subtitle && <div className="text-sm text-slate-500">{selected.subtitle}</div>}
+									{selected.subtitle && <div className="text-sm text-slate-500">{(selected.name === 'Exercicio Personalizado' && selectedPersonalMuscle) ? `${selected.subtitle} - ${selectedPersonalMuscle}` : selected.subtitle}</div>}
 									{selected.completed && (
 										<div className="mt-1 inline-flex items-center gap-2 text-sm text-emerald-700">
 											<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
@@ -1129,11 +1312,8 @@ useEffect(()=>{
 
 													<button className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2 text-red-600" onClick={async ()=>{
 														setDayMenuOpen(false);
-														const result = await Swal.fire({ title: 'Excluir dia?', text: 'Isto removerá o dia e todos os exercícios e registros vinculados.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sim, excluir', cancelButtonText: 'Cancelar' });
-														if (!result.isConfirmed) return;
-														await fetch(`/api/days/${selected.id}`, { method: 'DELETE' });
-														await loadDays(); setSelected(null); setWorkouts([]);
-														Swal.fire({ icon: 'success', text: 'Dia e registros excluídos' });
+														setDeleteDayError(''); setDeleteDayLoading(false);
+														setShowDeleteDayModal(true);
 													}}>
 														<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
 															<path d="M0 0h24v24H0z" fill="none"/>
