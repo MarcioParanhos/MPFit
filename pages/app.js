@@ -158,6 +158,12 @@ export default function AppPage(){
 	const [startModalLoading, setStartModalLoading] = useState(false);
 	const [startModalError, setStartModalError] = useState('');
 	const timerRef = useRef(null);
+
+	// Complete-day confirmation modal state
+	const [showCompleteDayModal, setShowCompleteDayModal] = useState(false);
+	const [completeDayLoading, setCompleteDayLoading] = useState(false);
+	const [completeDayError, setCompleteDayError] = useState('');
+	const completeDayFirstRef = useRef(null);
 	const [draggingId, setDraggingId] = useState(null);
 	const [dragOverIndex, setDragOverIndex] = useState(null);
 	const [dayMenuOpen, setDayMenuOpen] = useState(false);
@@ -777,6 +783,13 @@ useEffect(()=>{
     }
 },[showDeleteDayModal]);
 
+// focus complete day modal when opens
+useEffect(()=>{
+	if (showCompleteDayModal && completeDayFirstRef && completeDayFirstRef.current) {
+		try { completeDayFirstRef.current.focus(); } catch(e) { /* ignore */ }
+	}
+},[showCompleteDayModal]);
+
 // focus logout modal when opens
 useEffect(()=>{
 	if (showLogoutModal && logoutModalFirstRef && logoutModalFirstRef.current) {
@@ -1006,6 +1019,43 @@ useEffect(()=>{
 								</div>
 							</div>
 									)}
+
+							{/* Complete Day Confirmation Modal */}
+							{showCompleteDayModal && (
+								<div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }} role="dialog" aria-modal="true" aria-label="Confirmar conclusão do dia">
+									<div className="absolute inset-0 bg-black/40" onClick={(e)=>{ if (e.target === e.currentTarget) setShowCompleteDayModal(false); }} aria-hidden />
+									<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 modal-pop mx-4" style={{ zIndex: 10000, position: 'relative' }}>
+										<button aria-label="Fechar" title="Fechar" className="absolute top-3 right-3 p-2 rounded-full bg-white shadow hover:bg-slate-50" onClick={()=>setShowCompleteDayModal(false)}>
+											<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden>
+												<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+												<path d="M18 6l-12 12" />
+												<path d="M6 6l12 12" />
+											</svg>
+										</button>
+										<div className="mb-3">
+											<h3 className="text-lg font-semibold">Concluir dia?</h3>
+											<div className="text-sm text-slate-500">Marcar este dia como concluído. Isso irá parar o temporizador e registrar a duração final.</div>
+										</div>
+										<div className="space-y-3">
+											{completeDayError ? <div className="text-sm text-red-600" role="alert">{completeDayError}</div> : null}
+										</div>
+										<div className="mt-4 flex justify-end gap-2">
+											<button className="px-3 py-2 rounded" onClick={()=>setShowCompleteDayModal(false)}>Fechar</button>
+											<button ref={completeDayFirstRef} className="inline-flex items-center gap-2 px-4 py-2 rounded-md font-semibold shadow-sm hover:shadow-md transition bg-emerald-600 text-white" onClick={async ()=>{
+												if (completeDayLoading) return;
+												setCompleteDayError(''); setCompleteDayLoading(true);
+												try {
+													await completeDayAction();
+													setShowCompleteDayModal(false);
+												} catch (e) {
+													console.error(e);
+													setCompleteDayError(e.message || 'Erro ao concluir dia');
+												} finally { setCompleteDayLoading(false); }
+											}} disabled={completeDayLoading}>{completeDayLoading ? '...' : 'Sim, concluir'}</button>
+										</div>
+									</div>
+								</div>
+							)}
 
 							{/* Delete Day Modal (standard modal pattern) */}
 							{showDeleteDayModal && (
@@ -1262,7 +1312,7 @@ useEffect(()=>{
 
 
 											{selected && selected.startedAt ? (
-												<button className="btn p-2 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center" onClick={() => { setStartModalMode('cancel'); setShowStartModal(true); }} aria-label="Cancelar treino" title="Cancelar treino">
+												<button className="btn p-2 text-white rounded-full w-8 h-8 flex items-center justify-center" style={{ backgroundColor: '#dc2626', color: '#fff' }} onClick={() => { setStartModalMode('cancel'); setShowStartModal(true); }} aria-label="Cancelar treino" title="Cancelar treino">
 													<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="white" aria-hidden>
 														<rect x="6" y="6" width="12" height="12" rx="2" />
 													</svg>
@@ -1274,11 +1324,13 @@ useEffect(()=>{
 													</svg>
 												</button>
 											)}
-											<button className="btn p-2 bg-emerald-600 text-white rounded-full w-8 h-8 flex items-center justify-center" onClick={completeDayAction} aria-label="Concluir dia" title="Concluir dia">
-												<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-													<path d="M20 6L9 17l-5-5" />
-												</svg>
-											</button>
+											{!selected || (selected && !selected.completed) ? (
+												<button className="btn p-2 text-white rounded-full w-8 h-8 flex items-center justify-center" style={{ backgroundColor: '#16a34a', color: '#fff' }} onClick={()=>{ setShowCompleteDayModal(true); }} aria-label="Concluir dia" title="Concluir dia">
+													<svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+														<path d="M20 6L9 17l-5-5" />
+													</svg>
+												</button>
+											) : null}
 
 										<div className="relative">
 											<button className="btn p-2 bg-transparent text-slate-600" onClick={()=>setDayMenuOpen(v=>!v)} aria-haspopup="true" aria-expanded={dayMenuOpen} aria-label="Opções do dia">⋮</button>
