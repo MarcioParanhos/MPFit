@@ -317,10 +317,10 @@ export default function AdminPanel(){
 				</div>
 
 				{/* Edit modal */}
-				{editExercise && editForm && (
-					<div className="fixed inset-0 z-50 flex items-center justify-center">
-						<div className="absolute inset-0 bg-black/40" onClick={()=>{ setEditExercise(null); setEditForm(null); }} aria-hidden />
-						<div className="bg-white rounded-lg shadow p-6 z-60 max-w-xl w-full mx-4">
+					{editExercise && editForm && (
+						<div className="fixed inset-0 z-[9998] flex items-center justify-center" role="dialog" aria-modal="true">
+							<div className="absolute inset-0 bg-black/40 z-[9997]" onClick={()=>{ setEditExercise(null); setEditForm(null); }} aria-hidden />
+							<div className="bg-white rounded-lg shadow p-6 z-[9999] max-w-xl w-full mx-4 relative">
 							<h3 className="text-lg font-semibold mb-3">Editar exercício</h3>
 							<form onSubmit={handleSaveEdit} className="space-y-3">
 								<div>
