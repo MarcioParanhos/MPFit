@@ -18,8 +18,15 @@ export default async function handler(req, res) {
     const { name, targetMuscle, equipment, description, imageBase64 } = req.body || {};
     if (!name) return res.status(400).json({ error: 'name required' });
     try {
+      console.log('[api/admin/exercises] create request received for', name);
       let imagePath = null;
       if (imageBase64 && String(imageBase64).startsWith('data:')) {
+        // basic size guard: avoid writing extremely large uploads
+        const MAX_BASE64_LEN = 20 * 1024 * 1024; // allow up to ~20MB dataUrl
+        if (String(imageBase64).length > MAX_BASE64_LEN) {
+          console.warn('[api/admin/exercises] rejected image - base64 length exceeds limit', String(imageBase64).length);
+          return res.status(413).json({ error: 'image too large' });
+        }
         const matches = String(imageBase64).match(/^data:(image\/[a-zA-Z0-9+.]+);base64,(.*)$/);
         if (matches) {
           const mime = matches[1];
@@ -29,13 +36,19 @@ export default async function handler(req, res) {
           const fname = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
           const dir = ensureExercisesDir();
           const outPath = path.join(dir, fname);
-          fs.writeFileSync(outPath, buf);
+          // use async write to avoid blocking the event loop
+          await fs.promises.writeFile(outPath, buf);
           imagePath = `/images/exercises/${fname}`;
+          console.log('[api/admin/exercises] wrote image to', outPath);
         }
       }
       const e = await db.addExercise({ name, targetMuscle, equipment, imagePath, description });
+      console.log('[api/admin/exercises] exercise created id=', e && e.id);
       return res.status(201).json(e);
-    } catch (err) { console.error(err); return res.status(500).json({ error: String(err && err.message ? err.message : err) }); }
+    } catch (err) {
+      console.error('[api/admin/exercises] error creating exercise', err);
+      return res.status(500).json({ error: String(err && err.message ? err.message : err) });
+    }
   }
 
   res.status(405).end();
@@ -44,7 +57,7 @@ export default async function handler(req, res) {
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10mb', // allow larger base64 GIF uploads in dev
+      sizeLimit: '20mb', // allow larger base64 GIF uploads in dev
     },
   },
 };
